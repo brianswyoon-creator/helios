@@ -9,8 +9,7 @@
     "test": "node --test",
     "snapshot": "node scripts/snapshot.mjs"
   },
-  "dependencies": {
-    "@vercel/functions": "^2.0.0"
-  },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  }
 }
