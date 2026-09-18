@@ -74,8 +74,8 @@ const routes = [
   { re: /^\/pipeline\/?$/, tab: 'pipeline', title: 'Pipeline Dashboard', load: () => import('./views/pipeline.js') },
   { re: /^\/crm\/?$/, tab: 'crm', title: 'CRM', load: () => import('./views/crm.js') },
   { re: /^\/stakeholders\/?$/, tab: 'stakeholders', title: 'Stakeholder Collaboration', load: () => import('./views/stakeholders.js') },
-  { re: /^\/materials\/?$/, tab: 'materials', title: 'Enablement Materials (WIP)', load: () => import('./views/materials.js') },
-  { re: /^\/materials\/([\w-]+)\/?$/, tab: 'materials', title: 'Enablement Materials (WIP)', load: () => import('./views/material.js') },
+  { re: /^\/materials\/?$/, tab: 'materials', title: 'Launch Materials (WIP)', load: () => import('./views/materials.js') },
+  { re: /^\/materials\/([\w-]+)\/?$/, tab: 'materials', title: 'Launch Materials (WIP)', load: () => import('./views/material.js') },
 ];
 const main = document.getElementById('main');
 let current = null, currentPath = null, currentKey = null;

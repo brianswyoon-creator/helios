@@ -4,10 +4,10 @@ A website for the Helios GA launch case study. It reads its data **live from Goo
 
 | Tab | What it shows | Live source |
 | --- | --- | --- |
-| **Pipeline Dashboard** | 7 status tiles ($M), Pipeline Waterfall, Sellable at GA by Industry, Account Scatter, all with toggles | `Target Account List` sheet, tab `TargetAccounts` |
+| **Pipeline Dashboard** | 9 status tiles ($M; Wave 1 and Wave 2 each split in two), Pipeline Waterfall, Sellable at GA by Industry, Account Scatter, each with a Chart / Table switch | `Target Account List` sheet, tab `TargetAccounts` |
 | **CRM** | Account list in 4 views (Target Account Prioritization, By Industry, Wave 1, Wave 2) with search and filters | same sheet |
 | **Stakeholder Collaboration** | Interactive 4-week timeline (hover a bar for the detail) and a stakeholder map | `Helios Stakeholder Plan` sheet |
-| **Enablement Materials (WIP)** | Launch Materials Center: 9 documents, readable in-site, downloadable, each with a shareable link | 7 Google Docs + AE cards + tracker built from the stakeholder sheet |
+| **Launch Materials (WIP)** | 9 items, readable in-site with PDF download | 7 Google Docs + AE cards + the Helios Pilot Kit & Tracker Google Sheet (every tab) |
 
 There is **no build step, no framework and no dependencies**: static files in `public/` and a few serverless functions in `api/`. Nothing to compile means nothing to break on deploy.
 
@@ -19,7 +19,7 @@ There is **no build step, no framework and no dependencies**: static files in `p
 
 The site reads Google files the same way an anonymous visitor with the link would. For each file below, open **Share → General access → Anyone with the link → Viewer**. (Fastest: put all nine files in one Drive folder and share the folder that way.)
 
-- Sheets: `Target Account List_vF`, `Helios Stakeholder Plan_vF`
+- Sheets: `Target Account List_vF`, `Helios Stakeholder Plan_vF`, `Helios Pilot Kit & Tracker`
 - Docs: “Not at GA” Script, AE & SE Ramp Plan, Launch Narrative & Messaging, Where Helios Fits & Where It Doesn’t, Objection FAQ, Outreach Email Template, Pilot Kit
 
 The site's own server fetches the files, so visitors never need the Google links. Note the site itself is **open to anyone who has its URL** (it asks search engines not to index it). To restrict it, turn on *Vercel → Project → Settings → Deployment Protection*.
@@ -79,9 +79,9 @@ Every view has its own address.
 | `/materials/objection-faq` | One document |
 | `/materials/objection-faq#<heading>` | A section of a document (hover a heading and click **#** to copy) |
 | `/materials/ae-account-cards#crestline-health` | One AE account card |
-| `/materials/launch-tracker#risks` | Tracker section (`#milestones`, `#risks`, `#decisions`) |
+| `/materials/helios-pilot-kit-tracker#<tab-name>` | One tab of the Pilot Kit & Tracker sheet |
 
-Downloads: Google Docs as **Word / PDF** (always the latest version, exported on demand), AE cards as **Markdown / HTML**, tracker as **CSV**.
+Downloads: Google Docs and the tracker sheet as **PDF**, exported from Google on demand so they are always current.
 
 ---
 
@@ -116,14 +116,15 @@ lib/
   accounts.js           TargetAccounts tab → account records
   stakeholders.js       stakeholder workbook → timeline + map + risks
   sanitize.js           Google Doc HTML → clean, safe HTML with heading anchors
-  materials.js          the Launch Materials catalogue (order, titles, doc IDs)
+  materials.js          the Launch Materials catalogue (order, titles, doc / sheet IDs)
+  sheet-tabs.js         any Google Sheet tab → header + rows
 data/                   fallback snapshots + AE card content
 vercel.json             SPA rewrites, security headers
 ```
 
 ### Common edits
 
-- **Add or reorder a document:** edit `lib/materials.js` (title, Google Doc ID, order).
+- **Add or reorder a document:** edit `lib/materials.js` (title, Google Doc or Sheet ID, order).
 - **Use a different sheet:** set `ACCOUNTS_SHEET_ID` / `STAKEHOLDER_SHEET_ID` in Vercel.
 - **Colours and type:** the `:root` block at the top of `public/assets/styles.css`.
 

@@ -1,6 +1,6 @@
 // One Launch Materials document: live Google Doc reader, AE account cards, or the launch tracker.
 import { h, copyLink } from '../ui.js';
-import { store, stakeholdersStore, setStatus, scrollToHash } from '../app.js';
+import { store, setStatus, scrollToHash } from '../app.js';
 import { wipBanner, downloads } from './materials.js';
 import { slug as slugify } from '../model.js';
 
@@ -13,24 +13,23 @@ export function mount(root, { params }) {
   const header = h('div');
   const body = h('div', { class: 'skeleton' }, 'Loading document…');
   root.replaceChildren(h('div', { class: 'crumbs' }, h('a', { href: '/materials' }, '← Launch Materials Center')), header, body);
-  let first = true, offExtra = null;
+  let first = true;
   const afterRender = () => { if (first) { first = false; requestAnimationFrame(scrollToHash); } };
 
   function renderHeader(d) {
     document.title = `${d.title} · Helios Launch Hub`;
     header.replaceChildren(
       h('div', { class: 'page-head', style: { marginBottom: '18px' } },
-        h('div', null, h('div', { class: 'eyebrow' }, 'Enablement Materials · WIP'), h('h1', null, d.title), h('p', { class: 'lede' }, d.blurb)),
-        h('div', { class: 'doc-actions' }, downloads(d), d.docUrl ? h('a', { class: 'btn', href: d.docUrl, target: '_blank', rel: 'noopener' }, 'Open in Google Docs') : null,
-          h('button', { class: 'btn primary', type: 'button', onClick: () => copyLink(path + location.hash) }, 'Copy link'))),
+        h('div', null, h('h1', null, d.title), h('p', { class: 'lede' }, d.blurb)),
+        h('div', { class: 'doc-actions' }, downloads(d))),
       wipBanner());
   }
 
   function renderDoc(d) {
     if (d.source === 'unavailable') {
       body.className = '';
-      body.replaceChildren(h('div', { class: 'empty' }, h('h3', null, 'This Google Doc can’t be read yet'), h('p', null, 'Share the document as “Anyone with the link: Viewer” and it will appear here automatically within a few seconds.'),
-        h('p', { class: 'small muted' }, d.error), h('a', { class: 'btn', href: d.docUrl, target: '_blank', rel: 'noopener' }, 'Open in Google Docs')));
+      body.replaceChildren(h('div', { class: 'empty' }, h('h3', null, `This Google ${d.kind === 'gsheet' ? 'Sheet' : 'Doc'} can’t be read yet`), h('p', null, 'Share it as “Anyone with the link: Viewer” and it will appear here automatically within a few seconds.'),
+        h('p', { class: 'small muted' }, d.error), h('a', { class: 'btn', href: d.docUrl, target: '_blank', rel: 'noopener' }, `Open in Google ${d.kind === 'gsheet' ? 'Sheets' : 'Docs'}`)));
       return;
     }
     const article = h('article', { class: 'doc', html: d.html }); // server-sanitised HTML (see lib/sanitize.js)
@@ -70,50 +69,34 @@ export function mount(root, { params }) {
     draw();
   }
 
-  function renderTracker() {
+  let sheetTab = decodeURIComponent(location.hash.slice(1)) || '';
+  function renderSheet(d) {
     body.className = '';
-    const wrap = h('div');
-    body.replaceChildren(h('div', { class: 'subnav' }, ['milestones', 'risks', 'decisions'].map((id) => h('a', { class: 'btn', href: `#${id}` }, id[0].toUpperCase() + id.slice(1)))), wrap);
-    const state = { week: 0, owner: '' };
-    const st = stakeholdersStore();
-    offExtra = st.subscribe(({ data, error, changed }) => {
-      setStatus(data, error);
-      if (!data || (!changed && wrap.childElementCount)) return;
-      const draw = () => {
-        const S = data.stakeholders;
-        const tasks = S.flatMap((o) => o.tasks.map((t) => ({ ...t, owner: o.name, team: o.team, urgency: o.urgency }))).filter((t) => (!state.week || (state.week >= t.start && state.week <= t.end)) && (!state.owner || t.owner === state.owner)).sort((a, b) => a.end - b.end);
-        const table = (heads, rows) => h('div', { class: 'table-wrap' }, h('table', { class: 'data' }, h('thead', null, h('tr', null, heads.map((t) => h('th', null, t)))), h('tbody', null, rows)));
-        const sec = (id, title, note, ...kids) => h('section', { id, class: 'group' }, h('div', { class: 'group-head' }, h('h2', { style: { position: 'relative' } }, title), h('span', { class: 'stats' }, note), h('button', { class: 'btn ghost small', type: 'button', onClick: () => copyLink(`${path}#${id}`, 'Section link copied') }, 'Copy link')), ...kids);
-        wrap.replaceChildren(
-          data.source === 'snapshot' ? h('div', { class: 'notice' }, h('strong', null, 'Showing the built-in snapshot'), ` (${data.snapshotDate}). The stakeholder sheet could not be read.`) : '',
-          sec('milestones', 'Owners & milestones', `${tasks.length} tasks`,
-            h('div', { class: 'toolbar', style: { marginBottom: '12px' } },
-              h('div', { class: 'seg small' }, [0, ...data.weeks.map((w) => w.n)].map((n) => h('button', { type: 'button', 'aria-pressed': String(state.week === n), onClick: () => { state.week = n; draw(); } }, n ? `Week ${n}` : 'All weeks'))),
-              h('label', { class: 'field' }, 'Owner', h('select', { onChange: (e) => { state.owner = e.target.value; draw(); } }, h('option', { value: '' }, 'All owners'), S.map((o) => h('option', { value: o.name, selected: o.name === state.owner }, o.name))))),
-            table(['Due', 'Owner', 'Team', 'Milestone', 'Urgency'], tasks.map((t) => h('tr', null, h('td', { class: 'name' }, t.due), h('td', null, t.owner), h('td', null, t.team), h('td', null, t.detail), h('td', null, h('span', { class: `pill u-${t.urgency.toLowerCase()}` }, t.urgency)))))),
-          sec('risks', 'Risks', 'Expected pushback and the agreed resolution',
-            table(['Risk', 'Owner', 'Pushback', 'Resolution', 'Needed by'], S.filter((o) => o.pushback).map((o) => h('tr', null, h('td', null, h('span', { class: `pill u-${(o.risk || '').toLowerCase()}` }, o.risk || '—')), h('td', { class: 'name' }, o.name), h('td', null, o.pushback), h('td', null, o.resolution), h('td', null, o.neededBy || o.deadline))))),
-          sec('decisions', 'Decisions', 'Who owns which call, and by when',
-            table(['Decision', 'Owner', 'Team', 'Deadline'], S.flatMap((o) => o.decisions.map((dcs) => h('tr', null, h('td', { class: 'name', style: { whiteSpace: 'normal' } }, dcs), h('td', null, o.name), h('td', null, o.team), h('td', null, o.deadline)))))));
-        afterRender();
-      };
-      draw();
-    });
+    if (d.source === 'unavailable') return renderDoc(d);
+    const tabs = d.tabs || [];
+    if (!tabs.some((t) => slugify(t.name) === sheetTab)) sheetTab = tabs[0] ? slugify(tabs[0].name) : '';
+    const nav = h('div', { class: 'seg big', role: 'tablist' }, tabs.map((t) => h('button', { type: 'button', role: 'tab', 'aria-pressed': String(slugify(t.name) === sheetTab), onClick: () => { sheetTab = slugify(t.name); history.replaceState(null, '', `#${sheetTab}`); renderSheet(d); } }, t.name)));
+    const t = tabs.find((x) => slugify(x.name) === sheetTab);
+    const cell = (v) => h('td', { style: { whiteSpace: 'pre-line' } }, v);
+    body.replaceChildren(nav, !t ? h('div', { class: 'empty' }, 'This sheet has no readable tabs.') : h('div', { style: { marginTop: '16px' } },
+      t.title ? h('p', { class: 'muted small' }, t.title) : null,
+      h('div', { class: 'table-wrap' }, h('table', { class: 'data' }, h('thead', null, h('tr', null, t.header.map((x) => h('th', null, x)))),
+        h('tbody', null, t.rows.map((r) => h('tr', null, r.map(cell))))))));
   }
 
   const st = store(`/api/doc?slug=${encodeURIComponent(slug)}`);
   let rendered = false;
   const off = st.subscribe(({ data, error, changed }) => {
-    if (data?.kind !== 'tracker') setStatus(data, error);
+    setStatus(data, error);
     if (!data) { if (error) body.replaceChildren(h('div', { class: 'empty' }, 'Could not load this document. Retrying…')); return; }
     if (data.error && !data.kind) { body.className = ''; body.replaceChildren(h('div', { class: 'empty' }, h('h3', null, 'Document not found'), h('a', { href: '/materials' }, 'Back to the Launch Materials Center'))); return; }
     if (rendered && !changed) return;
     renderHeader(data);
     if (data.kind === 'cards') renderCards(data);
-    else if (data.kind === 'tracker') { if (!rendered) renderTracker(); }
+    else if (data.kind === 'gsheet') renderSheet(data);
     else { const y = window.scrollY; renderDoc(data); if (rendered) window.scrollTo(0, y); }
     rendered = true;
-    if (data.kind !== 'tracker') afterRender();
+    afterRender();
   });
-  return { refresh: (force) => { st.refresh(force); if (offExtra) stakeholdersStore().refresh(force); }, destroy() { off(); offExtra?.(); } };
+  return { refresh: (force) => st.refresh(force), destroy: off };
 }

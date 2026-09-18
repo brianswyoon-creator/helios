@@ -7,29 +7,33 @@ const BANDS = ['High', 'Medium', 'Low'];
 const HUB = /gtm stratops/i;
 
 export function mount(root) {
-  const state = { data: null, urgency: new Set(), team: '', collapsed: new Set(), week: 0, open: new Set() };
+  const state = { data: null, urgency: new Set(), team: '', collapsed: new Set(), week: 0, open: new Set(), tab: /^#stakeholder/.test(location.hash) ? 'map' : 'timeline' };
   const head = h('div', { class: 'page-head' });
   const notice = h('div');
   const urgChips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Filter by urgency' });
-  const weekSeg = h('div', { class: 'seg small', role: 'group', 'aria-label': 'Highlight a week' });
   const teamSel = h('select', { 'aria-label': 'Filter by team', onChange: (e) => { state.team = e.target.value; draw(); } });
   const tl = h('div', { class: 'tl-scroll' });
   const map = h('div', { class: 'map' });
   const tlMeta = h('span', { class: 'small muted' });
 
-  root.replaceChildren(head, notice,
-    h('div', { class: 'subnav' }, h('a', { class: 'btn', href: '#timeline' }, '4-week timeline'), h('a', { class: 'btn', href: '#stakeholder-map' }, 'Stakeholder map')),
-    h('section', { id: 'timeline' },
-      h('div', { class: 'card-head' }, h('div', null, h('h2', null, '4-Week Timeline to GA'), h('p', null, 'Hover a bar for the full task.')),
-        h('div', { class: 'toolbar' }, h('label', { class: 'field' }, 'Team', teamSel))),
-      h('div', { class: 'toolbar', style: { marginBottom: '14px', alignItems: 'center' } }, urgChips, weekSeg,
-        h('button', { class: 'btn ghost', type: 'button', onClick: () => { state.collapsed.clear(); draw(); } }, 'Expand all'),
-        h('button', { class: 'btn ghost', type: 'button', onClick: () => { state.data?.stakeholders.forEach((s) => state.collapsed.add(s.name)); draw(); } }, 'Collapse all'), tlMeta),
-      tl),
-    h('section', { id: 'stakeholder-map', style: { marginTop: '56px' } },
-      h('div', { class: 'card-head' }, h('div', null, h('h2', null, 'Stakeholder Map'), h('p', null, 'Grouped by urgency. Click a name for asks, pushback and resolution.')),
-        h('button', { class: 'btn', type: 'button', onClick: () => { const all = state.data?.stakeholders || []; const openAll = state.open.size < all.length; state.open = new Set(openAll ? all.map((s) => s.name) : []); drawMap(); } }, 'Open / close all')),
-      map));
+  const timelineSec = h('section', { id: 'timeline' },
+    h('div', { class: 'toolbar', style: { marginBottom: '14px', alignItems: 'flex-end' } }, urgChips, h('label', { class: 'field' }, 'Team', teamSel),
+      h('button', { class: 'btn ghost', type: 'button', onClick: () => { state.collapsed.clear(); draw(); } }, 'Expand all'),
+      h('button', { class: 'btn ghost', type: 'button', onClick: () => { state.data?.stakeholders.forEach((s) => state.collapsed.add(s.name)); draw(); } }, 'Collapse all'), tlMeta),
+    tl);
+  const mapSec = h('section', { id: 'stakeholder-map' },
+    h('div', { class: 'toolbar', style: { marginBottom: '14px' } }, h('button', { class: 'btn', type: 'button', onClick: () => { const all = state.data?.stakeholders || []; const openAll = state.open.size < all.length; state.open = new Set(openAll ? all.map((s) => s.name) : []); drawMap(); } }, 'Open / close all')),
+    map);
+  // Two large tabs switch between the timeline and the map; the address (#timeline / #stakeholder-map) follows.
+  const tabs = h('div', { class: 'seg big', role: 'tablist' }, [['timeline', '4-week timeline'], ['map', 'Stakeholder map']].map(([id, label]) =>
+    h('button', { type: 'button', role: 'tab', 'data-tab': id, onClick: () => { state.tab = id; history.replaceState(null, '', id === 'map' ? '#stakeholder-map' : '#timeline'); showTab(); } }, label)));
+  function showTab() {
+    tabs.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tab === state.tab)));
+    timelineSec.hidden = state.tab !== 'timeline';
+    mapSec.hidden = state.tab !== 'map';
+  }
+  showTab();
+  root.replaceChildren(head, notice, tabs, timelineSec, mapSec);
 
   BANDS.forEach((b) => urgChips.append(h('button', { class: 'chip', type: 'button', 'data-u': b, 'aria-pressed': 'false', onClick: () => { state.urgency.has(b) ? state.urgency.delete(b) : state.urgency.add(b); draw(); } },
     h('span', { class: 'sw', style: { background: `var(--c-${b === 'High' ? 'removed' : b === 'Medium' ? 'hold' : 'sellable'})` } }), `${b} urgency`)));
@@ -41,7 +45,6 @@ export function mount(root) {
   function drawTimeline() {
     const { weeks, stakeholders } = state.data;
     urgChips.querySelectorAll('[data-u]').forEach((b) => b.setAttribute('aria-pressed', String(state.urgency.has(b.dataset.u))));
-    weekSeg.replaceChildren(...[{ n: 0, label: 'All weeks' }, ...weeks.map((w) => ({ n: w.n, label: `W${w.n}` }))].map((w) => h('button', { type: 'button', 'aria-pressed': String(state.week === w.n), onClick: () => { state.week = w.n; drawTimeline(); } }, w.label)));
     const grid = h('div', { class: 'tl', style: { '--weeks': weeks.length }, role: 'table', 'aria-label': 'Stakeholder timeline' });
     grid.append(h('div', { class: 'th' }, 'Stakeholder / Task'), ...weeks.map((w, i) => h('div', { class: `th wk${i === weeks.length - 1 ? ' ga' : ''}` }, w.label)), h('div', { class: 'th due' }, 'Due'));
     let tasks = 0, owners = 0;
@@ -92,7 +95,7 @@ export function mount(root) {
     const id = `stakeholder-${slug(sh.name)}`;
     const open = state.open.has(sh.name);
     const el = h('article', { class: `sh ${sh.urgency.toLowerCase()}${HUB.test(sh.name) ? ' hub' : ''}`, id, 'data-open': '1' });
-    el.addEventListener('deeplink', () => { if (!state.open.has(sh.name)) { state.open.add(sh.name); drawMap(); document.getElementById(id)?.scrollIntoView(); } });
+    el.addEventListener('deeplink', () => { state.tab = 'map'; showTab(); if (!state.open.has(sh.name)) { state.open.add(sh.name); drawMap(); document.getElementById(id)?.scrollIntoView(); } });
     el.append(h('button', { type: 'button', 'aria-expanded': String(open), onClick: () => { open ? state.open.delete(sh.name) : state.open.add(sh.name); if (!open) history.replaceState(null, '', `#${id}`); drawMap(); } },
       h('div', { class: 'top' }, h('div', { class: 'nm' }, sh.name), h('span', { class: 'tag' }, sh.team || '—')),
       h('div', { class: 'meta' }, sh.deadline ? h('span', null, `Due: ${sh.deadline}`) : null, HUB.test(sh.name) ? h('span', { class: 'tag' }, 'Launch owner') : null, sh.risk ? h('span', { class: `pill u-${sh.risk.toLowerCase()}` }, `Risk: ${sh.risk}`) : null),
@@ -117,13 +120,12 @@ export function mount(root) {
     state.data = data;
     const n = data.stakeholders.length, tasks = data.stakeholders.reduce((k, s) => k + s.tasks.length, 0);
     head.replaceChildren(h('div', null, h('h1', null, 'Stakeholder Collaboration'),
-      h('p', { class: 'lede' }, `${n} stakeholder groups · ${tasks} tasks · ${data.weeks.length} weeks to GA.`)),
-      h('div', { class: 'source' }, 'Source: ', h('a', { href: data.sheetUrl, target: '_blank', rel: 'noopener' }, 'Helios Stakeholder Plan')));
+      h('p', { class: 'lede' }, `${n} stakeholder groups · ${tasks} tasks · ${data.weeks.length} weeks to GA.`)));
     notice.replaceChildren(data.source === 'snapshot' ? h('div', { class: 'notice' }, h('strong', null, 'Showing the built-in snapshot'), ` (${data.snapshotDate}). The Google Sheet could not be read, so live updates are paused.`) : '');
     const teams = [...new Set(data.stakeholders.map((s) => s.team).filter(Boolean))].sort();
     teamSel.replaceChildren(h('option', { value: '' }, 'All teams'), ...teams.map((t) => h('option', { value: t, selected: t === state.team }, t)));
     draw();
-    if (first) { first = false; scrollToHash(); }
+    if (first) { first = false; if (state.tab === 'map') scrollToHash(); }
   });
   return { refresh: (force) => st.refresh(force), destroy: off };
 }

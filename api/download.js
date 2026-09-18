@@ -42,6 +42,10 @@ export async function GET(request) {
       const { body, type } = await fetchDocDownload(item.docId, format);
       return file(body, type, `helios-${item.slug}.${format}`);
     }
+    if (item.kind === 'gsheet' && format === 'pdf') {
+      const { body, type } = await fetchDocDownload(item.sheetId, 'pdf', 'spreadsheet');
+      return file(body, type, `helios-${item.slug}.pdf`);
+    }
     return new Response('Unsupported format', { status: 400 });
   } catch (err) {
     return new Response(`Download unavailable: ${err?.message || err}`, { status: 502, headers: { 'content-type': 'text/plain; charset=utf-8' } });

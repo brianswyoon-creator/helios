@@ -101,26 +101,28 @@ export function drawIndustry(el, rows, width) {
 }
 
 /** Account scatter: fit (x) vs urgency (y), bubble area = deal size, top 20 highlighted and labelled. */
-export function drawScatter(el, pts, width, { dimmed = () => false, labels = true, onPick } = {}) {
+export function drawScatter(el, pts, width, { dimmed = () => false, labels = true, onPick, yKey = 'urgency', sizeKey = 'oppM' } = {}) {
   if (!pts?.length) return emptyState(el);
   const W = Math.max(width, 480), H = Math.round(Math.min(560, Math.max(400, W * 0.62))), m = { t: 30, r: 26, b: 46, l: 52 };
   const iw = W - m.l - m.r, ih = H - m.t - m.b, DOMAIN = 124;
   const x = (v) => m.l + (Math.max(0, v) / DOMAIN) * iw, y = (v) => m.t + ih - (Math.max(0, v) / DOMAIN) * ih;
-  const maxOpp = Math.max(...pts.map((p) => p.oppM), 0.1);
-  const r = (p) => 4 + 20 * Math.sqrt(p.oppM / maxOpp);
+  const sizeOf = (p) => (sizeKey === 'score' ? p.score : p.oppM);
+  const maxSize = Math.max(...pts.map(sizeOf), 0.1);
+  const r = (p) => 4 + 20 * Math.sqrt(Math.max(0, sizeOf(p)) / maxSize);
+  const py = (p) => (yKey === 'score' ? p.score : p.y);
   const svg = s('svg', { width: W, height: H, viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': 'Account scatter: fit versus urgency, bubble size is deal size' });
   for (const t of [0, 20, 40, 60, 80, 100]) {
     svg.append(s('line', { class: t ? 'grid' : 'base', x1: x(t), x2: x(t), y1: m.t, y2: H - m.b }), s('line', { class: t ? 'grid' : 'base', x1: m.l, x2: W - m.r, y1: y(t), y2: y(t) }));
     svg.append(s('text', { x: x(t), y: H - m.b + 16, 'text-anchor': 'middle' }, t), s('text', { x: m.l - 8, y: y(t) + 4, 'text-anchor': 'end' }, t));
   }
   svg.append(s('text', { class: 'axis-title', x: m.l + iw / 2, y: H - 8, 'text-anchor': 'middle' }, 'Fit (status, launch vertical, AMER)'));
-  svg.append(s('text', { class: 'axis-title', transform: `translate(14 ${m.t + ih / 2}) rotate(-90)`, 'text-anchor': 'middle' }, 'Urgency (tier, timing, holds)'));
+  svg.append(s('text', { class: 'axis-title', transform: `translate(14 ${m.t + ih / 2}) rotate(-90)`, 'text-anchor': 'middle' }, yKey === 'score' ? 'Weighted score (0–100)' : 'Urgency (tier, timing, holds)'));
   // Big bubbles first so small ones stay reachable; top 20 above the rest.
   const order = [...pts].sort((a, b) => (a.top - b.top) || (b.oppM - a.oppM));
   const placed = [];
   const labelNodes = [];
   for (const p of order) {
-    const cx = x(p.x), cy = y(p.y), rad = r(p), dim = dimmed(p);
+    const cx = x(p.x), cy = y(py(p)), rad = r(p), dim = dimmed(p);
     const g = s('g', { class: 'pt', tabindex: p.top ? 0 : -1, opacity: dim ? 0.12 : 1, 'aria-label': `${p.name}: fit ${p.fit}, urgency ${p.urgency}, ${fmtM(p.oppM)}` });
     g.append(s('circle', { cx, cy, r: rad, fill: p.top ? 'var(--c-removed)' : 'var(--c-other)', 'fill-opacity': p.top ? 0.82 : 0.45, stroke: 'var(--bg)', 'stroke-width': 1.5 }));
     bindTip(g, () => [h('b', null, p.top ? `#${p.rank} · ${p.name}` : p.name), tipRow('Status', p.status), tipRow('Industry · region', `${p.industry} · ${p.region}`), tipRow('Owner', p.owner),

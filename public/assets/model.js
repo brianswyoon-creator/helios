@@ -3,6 +3,8 @@
 // so the site and the sheet always agree. Nothing is hard-coded: all numbers come from the rows.
 
 export const STATUSES = ['Wave 1', 'Wave 2', 'Disqualified', 'Requalify', 'Open New Helios Deal', 'Text-Only', 'On Hold'];
+// Wave 1 and Wave 2 each split in two, exactly as the sheet's CRM tabs group them.
+export const SUB_STATUSES = ['Wave 1 — Helios deal in play', 'Wave 1 — No Helios deal yet', 'Wave 2 — Opportunities in play', 'Wave 2 — On hold (EU data)', 'Disqualified', 'Requalify', 'Open New Helios Deal', 'Text-Only', 'On Hold'];
 export const INDUSTRIES = ['FSI', 'HCLS', 'Legal', 'Logistics', 'E-commerce & Retail', 'AI & Developer Tools', 'CX & Support Software'];
 
 // Waterfall removal steps, in sheet order. `bucket` matches the sheet's "Account bucket (helper)".
@@ -66,8 +68,20 @@ export const sumRevM = (list) => list.reduce((s, a) => s + a.revenueK, 0) / 1000
 export const fmtM = (m, digits = 1) => `$${m.toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })}M`;
 export const fmtK = (k) => `$${Math.round(k).toLocaleString('en-US')}K`;
 
+export function subStatusOf(a) {
+  if (a.status === 'Wave 1') return hasHeliosDeal(a) ? 'Wave 1 — Helios deal in play' : 'Wave 1 — No Helios deal yet';
+  if (a.status === 'Wave 2') return isEuHold(a) ? 'Wave 2 — On hold (EU data)' : 'Wave 2 — Opportunities in play';
+  return a.status;
+}
 export function enrich(accounts) {
-  return accounts.map((a, i) => ({ ...a, i, bucket: bucketOf(a), tier: tierOf(a), fit: fitOf(a), urgency: urgencyOf(a), oppM: a.oppK / 1000 }));
+  return accounts.map((a, i) => ({ ...a, i, bucket: bucketOf(a), subStatus: subStatusOf(a), tier: tierOf(a), fit: fitOf(a), urgency: urgencyOf(a), oppM: a.oppK / 1000 }));
+}
+/** Summary tiles: one per sub-status ($M and account count). */
+export function tileSummary(rows) {
+  const known = SUB_STATUSES.map((status) => { const list = rows.filter((a) => a.subStatus === status); return { status, m: sumM(list), n: list.length }; });
+  const other = rows.filter((a) => !SUB_STATUSES.includes(a.subStatus));
+  if (other.length) known.push({ status: 'Other', m: sumM(other), n: other.length });
+  return known;
 }
 
 /** Status summary tiles: $M and account count per "Account Status for Helios GA". */
