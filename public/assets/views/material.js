@@ -40,14 +40,17 @@ export function renderMaterial(body, d, path, opts = {}) {
     function draw() {
       const q = search.value.trim().toLowerCase();
       const items = d.cards.filter((c) => !q || `${c.name} ${c.owner} ${c.use} ${c.ind} ${c.why}`.toLowerCase().includes(q));
+      // The card on screen follows the filter: keep the picked card while it still matches, otherwise show the
+      // first match. opts.card is left alone, so clearing the search returns to the picked card.
+      const picked = items.findIndex((c) => slugify(c.name) === opts.card);
+      const at = picked >= 0 ? picked : items.length ? 0 : -1;
+      const shown = at >= 0 ? [items[at]] : [];
       let tier = '';
-      index.replaceChildren(...items.flatMap((c) => { const out = []; if (c.tier !== tier) { tier = c.tier; out.push(h('div', { class: 'grp' }, TL[tier] || `Tier ${tier}`)); } out.push(h('a', { href: `#${slugify(c.name)}`, 'aria-current': slugify(c.name) === opts.card ? 'true' : null, onClick: (e) => { e.preventDefault(); pick(c); } }, c.name, h('span', null, c.deal ? money(c.deal) : 'new deal'))); return out; }));
-      const at = d.cards.findIndex((c) => slugify(c.name) === opts.card);
-      const shown = at >= 0 ? [d.cards[at]] : [];
+      index.replaceChildren(...items.flatMap((c, i) => { const out = []; if (c.tier !== tier) { tier = c.tier; out.push(h('div', { class: 'grp' }, TL[tier] || `Tier ${tier}`)); } out.push(h('a', { href: `#${slugify(c.name)}`, 'aria-current': i === at ? 'true' : null, onClick: (e) => { e.preventDefault(); pick(c); } }, c.name, h('span', null, c.deal ? money(c.deal) : 'new deal'))); return out; }));
       const nav = h('div', { class: 'card-nav' },
-        at > 0 ? h('button', { class: 'btn', type: 'button', onClick: () => pick(d.cards[at - 1]) }, `← ${d.cards[at - 1].name}`) : h('span'),
-        h('span', { class: 'muted small' }, `${at + 1} of ${d.cards.length}`),
-        at < d.cards.length - 1 ? h('button', { class: 'btn', type: 'button', onClick: () => pick(d.cards[at + 1]) }, `${d.cards[at + 1].name} →`) : h('span'));
+        at > 0 ? h('button', { class: 'btn', type: 'button', onClick: () => pick(items[at - 1]) }, `← ${items[at - 1].name}`) : h('span'),
+        h('span', { class: 'muted small' }, `${at + 1} of ${items.length}${q ? ' matching' : ''}`),
+        at < items.length - 1 ? h('button', { class: 'btn', type: 'button', onClick: () => pick(items[at + 1]) }, `${items[at + 1].name} →`) : h('span'));
       cards.replaceChildren(...(shown.length ? [...shown.map((c) => { const id = slugify(c.name); return h('article', { class: 'acard', id },
         h('div', { class: 'acard-top' }, h('div', null, h('h3', null, anchorBtn(path, id), c.name), h('div', { class: 'meta' }, `${c.ind} · ${c.region} · Owner: ${c.owner}`)),
           h('div', { class: 'acard-side' }, h('span', { class: 'pill' }, `Tier ${c.tier} · #${c.rank} by revenue`), h('a', { class: 'btn mini', href: `/api/download?slug=ae-account-cards&format=pdf&card=${id}`, download: '' }, 'Download .pdf'))),
@@ -57,7 +60,7 @@ export function renderMaterial(body, d, path, opts = {}) {
         h('div', { class: 'two' }, h('div', null, h('h4', null, 'Pilot scope'), ul(c.pilot)), h('div', null, h('h4', null, 'Excluded-use checks'), h('div', { class: 'excl' }, ul(c.excl)))),
         h('h4', null, 'Watch out for'), h('div', { class: 'risk' }, c.risk), h('div', { class: 'next' }, h('strong', null, 'Next step'), h('br'), c.next),
         h('p', { class: 'foot' }, 'Sources: Exhibit A (model capabilities and eval performance) and Exhibit B (CRM export). * BAA / health-data terms are a planning assumption, not stated in the case materials.')); }), nav]
-        : [h('div', { class: 'empty' }, 'No card selected.')]));
+        : [h('div', { class: 'empty' }, 'No cards match.')]));
     }
     search.addEventListener('input', draw);
     body.classList.add('doc-layout');
