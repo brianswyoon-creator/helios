@@ -20,8 +20,8 @@ export function mount(root, { params }) {
     document.title = `${d.title} · Helios Launch Hub`;
     header.replaceChildren(
       h('div', { class: 'page-head', style: { marginBottom: '18px' } },
-        h('div', null, h('h1', null, d.title), h('p', { class: 'lede' }, d.blurb)),
-        h('div', { class: 'doc-actions' }, downloads(d))),
+        h('div', null, h('h1', null, d.title), h('p', { class: 'lede' }, d.blurb), d.note ? h('p', { class: 'lede', style: { color: 'var(--clay-ink)' } }, d.note) : null),
+        h('div', { class: 'doc-actions' }, d.pdf === false ? null : downloads(d))),
       wipBanner());
   }
 

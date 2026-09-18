@@ -103,7 +103,7 @@ export function drawIndustry(el, rows, width) {
 /** Account scatter: fit (x) vs urgency (y), bubble area = deal size, top 20 highlighted and labelled. */
 export function drawScatter(el, pts, width, { dimmed = () => false, labels = true, onPick, yKey = 'urgency', sizeKey = 'oppM' } = {}) {
   if (!pts?.length) return emptyState(el);
-  const W = Math.max(width, 480), H = Math.round(Math.min(560, Math.max(400, W * 0.62))), m = { t: 30, r: 26, b: 46, l: 52 };
+  const W = Math.max(width, 480), H = Math.round(Math.min(720, Math.max(460, W * 0.56))), m = { t: 30, r: 26, b: 46, l: 52 };
   const iw = W - m.l - m.r, ih = H - m.t - m.b, DOMAIN = 124;
   const x = (v) => m.l + (Math.max(0, v) / DOMAIN) * iw, y = (v) => m.t + ih - (Math.max(0, v) / DOMAIN) * ih;
   const sizeOf = (p) => (sizeKey === 'score' ? p.score : p.oppM);
@@ -117,36 +117,54 @@ export function drawScatter(el, pts, width, { dimmed = () => false, labels = tru
   }
   svg.append(s('text', { class: 'axis-title', x: m.l + iw / 2, y: H - 8, 'text-anchor': 'middle' }, 'Fit (status, launch vertical, AMER)'));
   svg.append(s('text', { class: 'axis-title', transform: `translate(14 ${m.t + ih / 2}) rotate(-90)`, 'text-anchor': 'middle' }, yKey === 'score' ? 'Weighted score (0–100)' : 'Urgency (tier, timing, holds)'));
+  // Accounts with identical fit and urgency sit on the same spot. The sheet spreads the top 20 apart; the
+  // chart does the same for the rest (display only), so every bubble and its name can be seen.
+  const stacks = new Map();
+  for (const p of pts) if (!p.top) { const k = `${p.x}|${py(p)}`; stacks.set(k, [...(stacks.get(k) || []), p]); }
+  const shift = new Map();
+  for (const group of stacks.values()) {
+    if (group.length < 2) continue;
+    // Spread in pixels (small ring, capped) so a stack stays recognisably near its true position.
+    const n = group.length, radius = Math.min(44, 12 + 2.2 * n);
+    group.sort((a, b) => b.oppM - a.oppM).forEach((p, k) => {
+      const ang = (2 * Math.PI * k) / n + Math.PI / 4;
+      const cx0 = x(p.x), cy0 = y(py(p));
+      shift.set(p, [Math.max(m.l + 8, Math.min(W - m.r - 8, cx0 + radius * Math.cos(ang))) - cx0, Math.max(m.t + 8, Math.min(m.t + ih - 8, cy0 - radius * Math.sin(ang))) - cy0]);
+    });
+  }
   // Big bubbles first so small ones stay reachable; top 20 above the rest.
   const order = [...pts].sort((a, b) => (a.top - b.top) || (b.oppM - a.oppM));
   const placed = [];
   const labelNodes = [];
   for (const p of order) {
-    const cx = x(p.x), cy = y(py(p)), rad = r(p), dim = dimmed(p);
+    const [dx, dy] = shift.get(p) || [0, 0];
+    const cx = x(p.x) + dx, cy = y(py(p)) + dy, rad = r(p), dim = dimmed(p);
     const g = s('g', { class: 'pt', tabindex: p.top ? 0 : -1, opacity: dim ? 0.12 : 1, 'aria-label': `${p.name}: fit ${p.fit}, urgency ${p.urgency}, ${fmtM(p.oppM)}` });
     g.append(s('circle', { cx, cy, r: rad, fill: p.top ? 'var(--c-removed)' : 'var(--c-other)', 'fill-opacity': p.top ? 0.82 : 0.45, stroke: 'var(--bg)', 'stroke-width': 1.5 }));
     bindTip(g, () => [h('b', null, p.top ? `#${p.rank} · ${p.name}` : p.name), tipRow('Status', p.status), tipRow('Industry · region', `${p.industry} · ${p.region}`), tipRow('Owner', p.owner),
       tipRow('Opportunity', fmtM(p.oppM)), tipRow('Fit', String(p.fit)), tipRow('Urgency', String(p.urgency)), tipRow('Weighted score', `${p.score.toFixed(1)} (rank ${p.rank})`)]);
     if (onPick) { g.addEventListener('click', () => onPick(p)); g.addEventListener('keydown', (e) => { if (e.key === 'Enter') onPick(p); }); }
     svg.append(g);
-    if (p.top && labels && !dim) labelNodes.push({ p, cx, cy, rad });
+    if (labels && !dim) labelNodes.push({ p, cx, cy, rad });
   }
-  // Label the top 20, trying four positions around the bubble and keeping the first that does not collide.
+  // Label every account (top 20 first so they get the best spots), trying positions around each bubble and keeping the first free one.
   labelNodes.sort((a, b) => a.p.rank - b.p.rank);
   for (const n of labelNodes) placed.push({ l: n.cx - n.rad, r: n.cx + n.rad, t: n.cy - n.rad, b: n.cy + n.rad, own: n.p });
   for (const { p, cx, cy, rad } of labelNodes) {
-    const text = `${p.rank}. ${p.name.split(/\s+/)[0]}`;
-    const w = text.length * 6.4 + 4, hgt = 14;
+    const text = p.top ? `${p.rank}. ${p.name.split(/\s+/)[0]}` : p.name.split(/\s+/)[0];
+    const w = text.length * (p.top ? 6.4 : 5.9) + 4, hgt = p.top ? 14 : 13;
     const options = [[cx + rad + 4, cy + 4, 'start'], [cx - rad - 4, cy + 4, 'end'], [cx, cy - rad - 5, 'middle'], [cx, cy + rad + 14, 'middle'],
-      [cx + rad * 0.75 + 3, cy - rad * 0.75, 'start'], [cx + rad * 0.75 + 3, cy + rad * 0.75 + 10, 'start'], [cx - rad * 0.75 - 3, cy - rad * 0.75, 'end'], [cx - rad * 0.75 - 3, cy + rad * 0.75 + 10, 'end']];
-    let pick = options[0];
+      [cx + rad * 0.75 + 3, cy - rad * 0.75, 'start'], [cx + rad * 0.75 + 3, cy + rad * 0.75 + 10, 'start'], [cx - rad * 0.75 - 3, cy - rad * 0.75, 'end'], [cx - rad * 0.75 - 3, cy + rad * 0.75 + 10, 'end'],
+      [cx + rad + 4, cy - 10, 'start'], [cx + rad + 4, cy + 18, 'start'], [cx - rad - 4, cy - 10, 'end'], [cx - rad - 4, cy + 18, 'end'], [cx, cy - rad - 19, 'middle'], [cx, cy + rad + 28, 'middle']];
+    let pick = options[0], free = false;
     for (const o of options) {
       const left = o[2] === 'start' ? o[0] : o[2] === 'end' ? o[0] - w : o[0] - w / 2;
       const box = { l: left, r: left + w, t: o[1] - hgt + 2, b: o[1] + 2 };
       if (box.l < m.l - 40 || box.r > W - 2 || box.t < 0) continue;
-      if (!placed.some((q) => q.own !== p && box.l < q.r && box.r > q.l && box.t < q.b && box.b > q.t)) { pick = o; placed.push(box); break; }
+      if (!placed.some((q) => q.own !== p && box.l < q.r && box.r > q.l && box.t < q.b && box.b > q.t)) { pick = o; placed.push(box); free = true; break; }
     }
-    svg.append(s('text', { class: 'pt-label', x: pick[0], y: pick[1], 'text-anchor': pick[2] }, text));
+    // A label with no free spot is still drawn, lighter, so every account stays identifiable.
+    svg.append(s('text', { class: `pt-label${p.top ? '' : ' other'}`, opacity: free ? 1 : 0.55, x: pick[0], y: pick[1], 'text-anchor': pick[2] }, text));
   }
   el.replaceChildren(svg);
 }

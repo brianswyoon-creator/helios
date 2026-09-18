@@ -61,6 +61,24 @@ export function bindTip(el, build) {
   el.addEventListener('touchstart', (e) => { const t = e.touches[0]; showTip(build(), t.clientX, t.clientY); }, { passive: true });
 }
 
+/** Multi-select dropdown. options: [{value, label}], values: Set. onChange(Set) fires on every tick. */
+export function multiSelect({ options, values, placeholder = 'None', label = 'Filter' }, onChange) {
+  const summary = h('summary', { class: 'btn' });
+  const menu = h('div', { class: 'dd-menu', role: 'group', 'aria-label': label });
+  const dd = h('details', { class: 'dd' }, summary, menu);
+  const paint = () => {
+    const picked = options.filter((o) => values.has(o.value));
+    summary.textContent = picked.length === 0 ? placeholder : picked.length === 1 ? picked[0].label : `${picked.length} selected`;
+    summary.append(h('span', { class: 'dd-caret', 'aria-hidden': 'true' }, '▾'));
+  };
+  options.forEach((o) => menu.append(h('label', { class: 'dd-item' },
+    h('input', { type: 'checkbox', checked: values.has(o.value), onChange: (e) => { e.target.checked ? values.add(o.value) : values.delete(o.value); paint(); onChange(values); } }), o.label)));
+  menu.append(h('button', { class: 'btn ghost small', type: 'button', onClick: () => { values.clear(); menu.querySelectorAll('input').forEach((i) => { i.checked = false; }); paint(); onChange(values); } }, 'Clear'));
+  document.addEventListener('click', (e) => { if (dd.open && !dd.contains(e.target)) dd.open = false; });
+  paint();
+  return dd;
+}
+
 let toastTimer;
 export function toast(message) {
   const el = document.getElementById('toast');

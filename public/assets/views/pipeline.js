@@ -1,5 +1,5 @@
 // Pipeline Dashboard: summary strip, waterfall, sellable-by-industry, account scatter. Each chart has a Chart / Table switch.
-import { h, responsive } from '../ui.js';
+import { h, responsive, multiSelect } from '../ui.js';
 import { accountsStore, setStatus, setQuery, navigate } from '../app.js';
 import { enrich, tileSummary, waterfall, byIndustry, scatter, FILTERS, INDUSTRIES, fmtM, sumM } from '../model.js';
 import { drawWaterfall, drawIndustry, drawScatter, legend } from '../charts.js';
@@ -29,20 +29,21 @@ function section(id, title, blurb, onSwitch) {
 export function mount(root, { query }) {
   const state = {
     rows: [], payload: null,
-    addBack: (query.get('addback') || '').split(',').find((b) => FILTERS.some((f) => f.bucket === b)) || '',
+    addBack: new Set((query.get('addback') || '').split(',').filter((b) => FILTERS.some((f) => f.bucket === b))),
+    addBackInd: new Set((query.get('addback_ind') || '').split(',').filter((b) => FILTERS.some((f) => f.bucket === b))),
     weights: { fit: clamp(query.get('fit'), 5), urgency: clamp(query.get('urgency'), 5), size: clamp(query.get('size'), 3) },
     industries: new Set((query.get('industry') || '').split(',').filter(Boolean)),
     yAxis: query.get('y') === 'score' ? 'score' : 'urgency', sizeBy: query.get('size_by') === 'score' ? 'score' : 'oppM',
     table: { wf: false, ind: false, sc: false },
   };
-  const addBackSet = () => new Set(state.addBack ? [state.addBack] : []);
-  const sync = () => setQuery({ addback: state.addBack || null, fit: state.weights.fit !== 5 ? state.weights.fit : null, urgency: state.weights.urgency !== 5 ? state.weights.urgency : null, size: state.weights.size !== 3 ? state.weights.size : null, industry: [...state.industries], y: state.yAxis === 'score' ? 'score' : null, size_by: state.sizeBy === 'score' ? 'score' : null });
+  const sync = () => setQuery({ addback: [...state.addBack], addback_ind: [...state.addBackInd], fit: state.weights.fit !== 5 ? state.weights.fit : null, urgency: state.weights.urgency !== 5 ? state.weights.urgency : null, size: state.weights.size !== 3 ? state.weights.size : null, industry: [...state.industries], y: state.yAxis === 'score' ? 'score' : null, size_by: state.sizeBy === 'score' ? 'score' : null });
 
   const head = h('div', { class: 'page-head' });
   const notice = h('div');
   const tiles = h('div');
-  const addBackSel = h('select', { 'aria-label': 'Add back a filter', onChange: (e) => { state.addBack = e.target.value; sync(); drawWf(); drawInd(); } },
-    h('option', { value: '' }, 'None — all filters on'), FILTERS.map((f) => h('option', { value: f.bucket }, f.toggle)));
+  const filterOptions = FILTERS.map((f) => ({ value: f.bucket, label: f.toggle }));
+  const addBackSel = multiSelect({ options: filterOptions, values: state.addBack, placeholder: 'None — all filters on', label: 'Add back filters (waterfall)' }, () => { sync(); drawWf(); });
+  const addBackIndSel = multiSelect({ options: filterOptions, values: state.addBackInd, placeholder: 'None — all filters on', label: 'Add back filters (industry)' }, () => { sync(); drawInd(); });
   const wfEl = h('div', { class: 'chart' }), wfLegend = h('div'), wfSummary = h('p', { class: 'small muted', style: { margin: '10px 0 0' } });
   const indEl = h('div', { class: 'chart' }), indLegend = legend(['sellable', 'added']);
   const scEl = h('div', { class: 'chart' }), scLegend = h('div', { class: 'legend' });
@@ -50,11 +51,11 @@ export function mount(root, { query }) {
   const indChips = h('div', { class: 'chips', role: 'group', 'aria-label': 'Highlight industries' });
   const scControls = h('div', { class: 'toolbar', style: { marginBottom: '12px' } });
 
-  const wfSec = section('waterfall', 'Pipeline Waterfall', 'Choose a filter to add that pipeline back. The industry chart follows the same choice.', (t) => { state.table.wf = t; drawWf(); });
-  const indSec = section('industry', 'Sellable at GA by Industry', 'Baseline, plus anything added back above.', (t) => { state.table.ind = t; drawInd(); });
+  const wfSec = section('waterfall', 'Pipeline Waterfall', 'Tick filters to add that pipeline back.', (t) => { state.table.wf = t; drawWf(); });
+  const indSec = section('industry', 'Sellable at GA by Industry', 'Baseline, plus anything you add back here.', (t) => { state.table.ind = t; drawInd(); });
   const scSec = section('scatter', 'Account Scatter: Fit vs. Urgency', 'Weights (0–10) re-rank the accounts; the top 20 by weighted score are highlighted. Click a bubble to open the account in the CRM.', (t) => { state.table.sc = t; drawSc(); });
-  wfSec.el.append(h('div', { class: 'toolbar', style: { marginBottom: '14px' } }, h('label', { class: 'field' }, 'Add back', addBackSel)), wfEl, wfLegend, wfSummary);
-  indSec.el.append(indEl, indLegend);
+  wfSec.el.append(h('div', { class: 'toolbar', style: { marginBottom: '14px' } }, h('div', { class: 'field' }, 'Add back', addBackSel)), wfEl, wfLegend, wfSummary);
+  indSec.el.append(h('div', { class: 'toolbar', style: { marginBottom: '14px' } }, h('div', { class: 'field' }, 'Add back', addBackIndSel)), indEl, indLegend);
   scSec.el.append(sliders, scControls, scEl, scLegend);
   root.replaceChildren(head, notice, tiles, wfSec.el, indSec.el, scSec.el);
 
@@ -73,21 +74,20 @@ export function mount(root, { query }) {
 
   function drawWf() {
     wfSec.setMode(state.table.wf);
-    addBackSel.value = state.addBack;
-    const data = waterfall(state.rows, addBackSet());
+    const data = waterfall(state.rows, state.addBack);
     if (state.table.wf) {
       wfEl.replaceChildren(table([['Step'], ['$M', 'num'], ['Accounts', 'num'], ['Treatment']], data.steps.map((st) => h('tr', null, h('td', null, st.label), num(`${st.baseKind && !st.added && !st.summary ? '−' : ''}${fmtM(st.m)}`), num(st.n),
         h('td', null, st.added ? 'Added back (filter off)' : { total: 'Subtotal', removed: 'Removed', hold: 'On hold', sellable: 'Result', wave: 'Wave pipeline' }[st.kind])))));
       wfLegend.replaceChildren();
-    } else { drawWaterfall(wfEl, data, wfEl.clientWidth); wfLegend.replaceChildren(legend(['total', 'removed', 'hold', 'sellable', 'wave', ...(state.addBack ? ['added'] : [])])); }
+    } else { drawWaterfall(wfEl, data, wfEl.clientWidth); wfLegend.replaceChildren(legend(['total', 'removed', 'hold', 'sellable', 'wave', ...(state.addBack.size ? ['added'] : [])])); }
     const base = waterfall(state.rows);
-    wfSummary.textContent = state.addBack
+    wfSummary.textContent = state.addBack.size
       ? `Scenario: ${fmtM(data.sellable.m)} sellable across ${data.sellable.n} accounts (baseline ${fmtM(base.sellable.m)} across ${base.sellable.n}; +${fmtM(data.sellable.m - base.sellable.m)} added back).`
       : `Baseline: ${fmtM(base.sellable.m)} sellable at GA across ${base.sellable.n} accounts, ${state.rows.length ? ((base.sellable.m / base.total.m) * 100).toFixed(0) : 0}% of total pipeline.`;
   }
   function drawInd() {
     indSec.setMode(state.table.ind);
-    const rows = byIndustry(state.rows, addBackSet());
+    const rows = byIndustry(state.rows, state.addBackInd);
     const sum = (k) => rows.reduce((t, r) => t + r[k], 0);
     indLegend.hidden = state.table.ind;
     if (state.table.ind) {
@@ -120,8 +120,7 @@ export function mount(root, { query }) {
     notice.replaceChildren(p.source === 'snapshot' ? h('div', { class: 'notice' }, h('strong', null, 'Showing the built-in snapshot'), ` (${p.snapshotDate}). The Google Sheet could not be read, so live updates are paused. Share the sheet as “Anyone with the link: Viewer”, then press the status button (top right) to retry.`) : '');
     tiles.replaceChildren(
       h('div', { class: 'tiles' }, tileSummary(state.rows).map((t) => { const cfg = TILES[t.status] || { label: t.status, color: 'var(--c-other)' }; return h('a', { class: 'tile', href: `/crm?status=${encodeURIComponent(t.status)}`, style: { '--tile': cfg.color } },
-        h('div', { class: 'k' }, `${cfg.label} ($M)`), h('div', { class: 'v' }, `$${t.m.toFixed(1)}`, h('small', null, 'M')), h('div', { class: 'n' }, `${cfg.note ? `${cfg.note} · ` : ''}${t.n} account${t.n === 1 ? '' : 's'}`)); })),
-      h('div', { class: 'tiles-foot' }, `Opportunity size by Account Status for Helios GA. Sums to ${fmtM(total)}.`));
+        h('div', { class: 'k' }, `${cfg.label} ($M)`), h('div', { class: 'v' }, `$${t.m.toFixed(1)}`, h('small', null, 'M')), h('div', { class: 'n' }, `${cfg.note ? `${cfg.note} · ` : ''}${t.n} account${t.n === 1 ? '' : 's'}`)); })));
     const known = new Set(state.rows.map((a) => a.industry));
     indChips.replaceChildren(...[...INDUSTRIES.filter((i) => known.has(i)), ...[...known].filter((i) => !INDUSTRIES.includes(i))].map((name) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(state.industries.has(name)), onClick: (e) => { state.industries.has(name) ? state.industries.delete(name) : state.industries.add(name); e.currentTarget.setAttribute('aria-pressed', String(state.industries.has(name))); sync(); drawSc(); } }, name)));
     drawWf(); drawInd(); drawSc();

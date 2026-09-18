@@ -12,7 +12,7 @@ export async function GET(request) {
   const slug = new URL(request.url).searchParams.get('slug') || '';
   const item = bySlug(slug);
   if (!item) return json({ error: 'Unknown document' }, { status: 404, live: false });
-  const base = { slug: item.slug, title: item.title, kind: item.kind, blurb: item.blurb, fetchedAt: new Date().toISOString() };
+  const base = { slug: item.slug, title: item.title, kind: item.kind, blurb: item.blurb, note: item.note, pdf: item.pdf, fetchedAt: new Date().toISOString() };
   if (item.kind === 'cards') return json({ ...base, source: 'site', cards }, { live: false });
   if (item.kind === 'gsheet') {
     try {

@@ -7,7 +7,7 @@ A website for the Helios GA launch case study. It reads its data **live from Goo
 | **Pipeline Dashboard** | 9 status tiles ($M; Wave 1 and Wave 2 each split in two), Pipeline Waterfall, Sellable at GA by Industry, Account Scatter, each with a Chart / Table switch | `Target Account List` sheet, tab `TargetAccounts` |
 | **CRM** | Account list in 4 views (Target Account Prioritization, By Industry, Wave 1, Wave 2) with search and filters | same sheet |
 | **Stakeholder Collaboration** | Interactive 4-week timeline (hover a bar for the detail) and a stakeholder map | `Helios Stakeholder Plan` sheet |
-| **Launch Materials (WIP)** | 9 items, readable in-site with PDF download | 7 Google Docs + AE cards + the Helios Pilot Kit & Tracker Google Sheet (every tab) |
+| **Launch Materials (WIP)** | 9 items, each opening a page in the site; Google Docs also download as PDF | 7 Google Docs + AE cards + the Helios Pilot Kit & Tracker Google Sheet (every tab) |
 
 There is **no build step, no framework and no dependencies**: static files in `public/` and a few serverless functions in `api/`. Nothing to compile means nothing to break on deploy.
 
@@ -73,7 +73,7 @@ Every view has its own address.
 
 | Link | Opens |
 | --- | --- |
-| `/pipeline?addback=EMEA,stalled` | Dashboard with those two filters added back |
+| `/pipeline?addback=EMEA,stalled&addback_ind=Medical` | Dashboard with filters added back on the waterfall and, separately, on the industry chart |
 | `/crm?view=wave-1&industry=FSI&q=harnell`, `/crm?status=Disqualified` | CRM view with filters and search applied |
 | `/stakeholders#timeline`, `/stakeholders#stakeholder-legal-and-privacy` | Timeline, or one stakeholder card opened |
 | `/materials/objection-faq` | One document |

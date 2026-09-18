@@ -113,6 +113,15 @@ h4 { font-size: 14px; color: var(--ink-2); }
 .step { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .step + .step { margin-top: 14px; align-items: flex-end; }
 .step-k { width: 44px; font-size: 13px; color: var(--ink-3); }
+.dd { position: relative; display: inline-block; }
+.dd > summary { list-style: none; cursor: pointer; gap: 8px; min-width: 220px; justify-content: space-between; }
+.dd > summary::-webkit-details-marker { display: none; }
+.dd-caret { color: var(--ink-3); font-size: 11px; }
+.dd-menu { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; min-width: 300px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 4px; padding: 6px 4px; box-shadow: 0 6px 20px rgba(20, 20, 19, 0.12); display: grid; gap: 2px; }
+.dd-item { display: flex; align-items: center; gap: 8px; padding: 5px 8px; font-size: 14px; cursor: pointer; border-radius: 3px; }
+.dd-item:hover { background: var(--surface-2); }
+.dd-item input { accent-color: var(--ink); margin: 0; }
+.dd-menu .btn.ghost { justify-self: start; margin: 4px 8px 2px; }
 .subnav { display: flex; gap: 18px; flex-wrap: wrap; margin-bottom: 8px; font-size: 15px; }
 .subnav .btn { border: 0; background: none; padding: 0; text-decoration: underline; font-size: 15px; }
 
@@ -141,6 +150,7 @@ h4 { font-size: 14px; color: var(--ink-2); }
 .chart .hit { fill: transparent; cursor: pointer; }
 .chart .pt { cursor: pointer; }
 .chart .pt-label { fill: var(--ink); font-size: 12px; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; pointer-events: none; }
+.chart .pt-label.other { fill: var(--ink-2); font-size: 11px; }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--ink-2); margin-top: 8px; }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .legend i { width: 10px; height: 10px; display: inline-block; }
@@ -236,7 +246,11 @@ tr.detail td { background: var(--surface); padding: 14px 18px 18px; }
 
 /* Materials */
 .mat-list { list-style: none; padding: 0; margin: 0; border-top: 1px solid var(--line-strong); }
-.mat { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.mat { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 12px 8px; margin: 0 -8px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.mat:hover { background: var(--surface-2); }
+.mat:hover h3 a { text-decoration: underline; }
+.mat .open { white-space: nowrap; }
+.mat .wip-note { color: var(--clay-ink); font-size: 14px; margin-top: 2px; }
 .mat .no { color: var(--ink-3); font-variant-numeric: tabular-nums; align-self: start; padding-top: 1px; }
 .mat h3 a { text-decoration: none; }
 .mat h3 a:hover { text-decoration: underline; }
