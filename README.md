@@ -4,7 +4,7 @@ A website for the Helios GA launch case study. It reads its data **live from Goo
 
 | Tab | What it shows | Live source |
 | --- | --- | --- |
-| **Pipeline Dashboard** | Closed-won progress bar (target $67M), Pipeline Waterfall, Sellable at GA by Industry, Account Scatter; each section folds and has a Chart / Table switch | `Target Account List` sheet, tab `TargetAccounts` |
+| **Pipeline Dashboard** | Pipeline Waterfall, Sellable at GA by Industry, Account Scatter; each section folds and has a Chart / Table switch | `Target Account List` sheet, tab `TargetAccounts` |
 | **CRM** | Account list in 4 views (Target Account Prioritization, By Industry, Wave 1, Wave 2) with search and filters | same sheet |
 | **Stakeholder Collaboration** | Interactive 4-week timeline (hover a bar for the detail) and a stakeholder map | `Helios Stakeholder Plan` sheet |
 | **Launch Materials (WIP)** | 9 items that fold open in place (the first starts open); Google Docs also download as PDF | 7 Google Docs + AE cards + the Helios Pilot Kit & Tracker Google Sheet (every tab) |
@@ -57,7 +57,7 @@ Google Sheets / Docs ──(export, on demand)──▶ /api/* on Vercel ──(
 
 ### What you can safely change in Google
 
-- **Any value** in the `TargetAccounts` tab (status, next steps, $ figures, owners, new rows). Every chart and CRM view recalculates. Set an account's status to `Closed Won` and its opportunity size moves into the closed-won bar at the top of the dashboard. Columns are found by their **header text**, so you can reorder or add columns; just keep the header names.
+- **Any value** in the `TargetAccounts` tab (status, next steps, $ figures, owners, new rows). Every chart and CRM view recalculates. Columns are found by their **header text**, so you can reorder or add columns; just keep the header names.
 - **Any text** in the stakeholder sheet. Tabs are found by their header rows, not by name or position. On the timeline tab keep the `Stakeholder / Task`, `Week 1…4` and `Due` headers, the `HIGH / MEDIUM / LOW URGENCY` band rows and the `↳` task prefix.
 - **Anything** in the Google Docs. Headings become the in-page table of contents and shareable section links.
 

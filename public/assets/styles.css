@@ -126,13 +126,6 @@ h4 { font-size: 14px; color: var(--ink-2); }
 .subnav .btn { border: 0; background: none; padding: 0; text-decoration: underline; font-size: 15px; }
 
 /* Closed-won progress bar */
-.progress { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 8px 20px; align-items: center; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--line); padding: 16px 0; }
-.progress .lab { font-weight: 700; line-height: 1.3; }
-.progress .lab small { display: block; font-weight: 400; color: var(--ink-3); font-size: 13px; }
-.progress .track { position: relative; height: 26px; background: var(--surface-2); border: 1px solid var(--line-strong); border-radius: 3px; overflow: hidden; }
-.progress .fill { position: absolute; inset: 0 auto 0 0; background: var(--c-sellable); min-width: 0; }
-.progress .val { position: absolute; top: 50%; transform: translateY(-50%); left: 10px; font-size: 14px; font-weight: 700; color: var(--ink); white-space: nowrap; }
-.progress .ticks { display: flex; justify-content: space-between; font-size: 13px; color: var(--ink-3); margin-top: 4px; font-variant-numeric: tabular-nums; }
 .card.folded > :not(.card-head) { display: none; }
 
 /* Status summary: one ruled strip, like a totals row */
@@ -359,7 +352,6 @@ tr.detail td { background: var(--tint-clay); padding: 14px 18px 18px; border-lef
   .mat .actions { grid-column: 2; flex-direction: row; align-items: center; justify-content: space-between; }
   .mat .actions .fold { margin-top: 0; margin-left: auto; }
   .mat-body { padding-left: 0; }
-  .progress { grid-template-columns: minmax(0, 1fr); }
   .detail-grid, .acard .two, .sliders { grid-template-columns: minmax(0, 1fr); }
   .source { text-align: left; }
 }
