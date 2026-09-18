@@ -3,6 +3,31 @@ import { bySlug } from '../lib/materials.js';
 import { fetchDocDownload } from '../lib/google.js';
 import { loadStakeholders } from '../lib/live.js';
 import cards from '../data/ae-cards.js';
+import { buildPdf } from '../lib/pdf.js';
+
+const cardSlug = (name) => name.toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+const TIERS = { A: 'Tier A · budget or launch-week start', B: 'Tier B · explicit Helios ask', C: 'Tier C · pain in notes, no deal yet' };
+
+function cardPdf(d) {
+  const li = (items) => items.map((text) => ({ type: 'li', text }));
+  return buildPdf([
+    { type: 'meta', text: 'Helios AE Account Card · work in progress' },
+    { type: 'title', text: d.name },
+    { type: 'meta', text: `${TIERS[d.tier] || `Tier ${d.tier}`} · #${d.rank} by revenue · ${d.ind} · ${d.region} · Owner: ${d.owner}` },
+    { type: 'meta', text: `Existing annual revenue ${money(d.rev)} · Helios deal ${d.deal ? money(d.deal) : 'none yet'} · Deal ÷ revenue ${d.deal ? `${(d.deal / d.rev).toFixed(2)}x` : '—'} · CRM action: ${d.deal ? 'Open' : 'Create'}` },
+    { type: 'rule' },
+    { type: 'h2', text: 'Why now' }, { type: 'p', text: d.why },
+    { type: 'h2', text: 'CRM evidence' }, ...li(d.ev),
+    { type: 'h2', text: 'Use case' }, { type: 'p', text: d.use },
+    { type: 'h2', text: 'Proof to lead with (Exhibit A)' }, ...li(d.proof),
+    { type: 'h2', text: 'Pilot scope' }, ...li(d.pilot),
+    { type: 'h2', text: 'Excluded-use checks' }, ...li(d.excl),
+    { type: 'h2', text: 'Watch out for' }, { type: 'p', text: d.risk },
+    { type: 'h2', text: 'Next step' }, { type: 'p', text: d.next },
+    { type: 'rule' },
+    { type: 'meta', text: 'Sources: Exhibit A (model capabilities and eval performance) and Exhibit B (CRM export). * BAA / health-data terms are a planning assumption, not stated in the case materials.' },
+  ], { title: `${d.name} - Helios AE Account Card` });
+}
 
 const file = (body, type, name) => new Response(body, { headers: { 'content-type': type, 'content-disposition': `attachment; filename="${name}"`, 'cache-control': 'no-store' } });
 const money = (k) => (k == null ? 'n/a' : `$${(k / 1000).toFixed(1)}M`);
@@ -37,6 +62,11 @@ export async function GET(request) {
   if (!item) return new Response('Unknown document', { status: 404 });
   try {
     if (item.kind === 'cards' && format === 'md') return file(cardsMarkdown(), 'text/markdown; charset=utf-8', 'helios-ae-account-cards.md');
+    if (item.kind === 'cards' && format === 'pdf') {
+      const card = cards.find((c) => cardSlug(c.name) === (q.get('card') || ''));
+      if (!card) return new Response('Unknown account card', { status: 404 });
+      return file(cardPdf(card), 'application/pdf', `helios-ae-card-${cardSlug(card.name)}.pdf`);
+    }
     if (item.kind === 'tracker' && format === 'csv') return file(await trackerCsv(), 'text/csv; charset=utf-8', 'helios-launch-tracker.csv');
     if (item.kind === 'gdoc' && (format === 'docx' || format === 'pdf')) {
       const { body, type } = await fetchDocDownload(item.docId, format);

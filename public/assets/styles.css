@@ -262,6 +262,8 @@ tr.detail td { background: var(--tint-clay); padding: 14px 18px 18px; border-lef
 .mat-head:hover { background: var(--surface-2); }
 .mat-head:hover h3 a { text-decoration: underline; }
 .no-col { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.mat .fold.pop { font-size: 11px; padding: 1px 8px; gap: 5px; }
+.mat .fold.pop .fold-caret { font-size: 10px; }
 .fold { border: 1px solid var(--ink); background: var(--surface); border-radius: 4px; padding: 6px 14px; font-size: 15px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; color: var(--ink); }
 .fold:hover { background: var(--ink); color: var(--bg); }
 .fold-caret { display: inline-block; font-size: 14px; line-height: 1; }
@@ -309,7 +311,11 @@ tr.detail td { background: var(--tint-clay); padding: 14px 18px 18px; border-lef
 
 /* AE account cards */
 .acard { border-top: 2px solid var(--ink); padding: 16px 0 8px; margin-bottom: 36px; }
-.acard-top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: baseline; }
+.acard-top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start; }
+.acard-side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.btn.mini { font-size: 12px; padding: 2px 8px; color: var(--ink-2); }
+.card-nav { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 4px; }
+.idx a[aria-current="true"] { font-weight: 700; color: var(--ink); }
 .acard h3 { font-size: 22px; position: relative; }
 .acard .meta { color: var(--ink-2); font-size: 14px; margin-top: 2px; }
 .acard .stats { display: flex; flex-wrap: wrap; gap: 8px 0; margin: 14px 0 4px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 10px 0; }

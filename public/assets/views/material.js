@@ -33,20 +33,31 @@ export function renderMaterial(body, d, path, opts = {}) {
     const search = h('input', { type: 'search', placeholder: 'Filter accounts, owners, use cases…', 'aria-label': 'Filter cards' });
     const index = h('div', { class: 'idx' }), cards = h('div');
     const ul = (items) => h('ul', null, items.map((x) => h('li', null, x)));
+    // One card at a time: pick from the list on the left (or a #account link); prev / next at the bottom.
+    opts.card ??= (!opts.inline && decodeURIComponent(location.hash.slice(1))) || '';
+    if (!d.cards.some((c) => slugify(c.name) === opts.card)) opts.card = d.cards[0] ? slugify(d.cards[0].name) : '';
+    const pick = (c) => { opts.card = slugify(c.name); if (!opts.inline) history.replaceState(null, '', `#${opts.card}`); draw(); if (cards.getBoundingClientRect().top < 60) cards.scrollIntoView({ block: 'start' }); };
     function draw() {
       const q = search.value.trim().toLowerCase();
       const items = d.cards.filter((c) => !q || `${c.name} ${c.owner} ${c.use} ${c.ind} ${c.why}`.toLowerCase().includes(q));
       let tier = '';
-      index.replaceChildren(...items.flatMap((c) => { const out = []; if (c.tier !== tier) { tier = c.tier; out.push(h('div', { class: 'grp' }, TL[tier] || `Tier ${tier}`)); } out.push(h('a', { href: `#${slugify(c.name)}` }, c.name, h('span', null, c.deal ? money(c.deal) : 'new deal'))); return out; }));
-      cards.replaceChildren(...(items.length ? items.map((c) => { const id = slugify(c.name); return h('article', { class: 'acard', id },
-        h('div', { class: 'acard-top' }, h('div', null, h('h3', null, anchorBtn(path, id), c.name), h('div', { class: 'meta' }, `${c.ind} · ${c.region} · Owner: ${c.owner}`)), h('span', { class: 'pill' }, `Tier ${c.tier} · #${c.rank} by revenue`)),
+      index.replaceChildren(...items.flatMap((c) => { const out = []; if (c.tier !== tier) { tier = c.tier; out.push(h('div', { class: 'grp' }, TL[tier] || `Tier ${tier}`)); } out.push(h('a', { href: `#${slugify(c.name)}`, 'aria-current': slugify(c.name) === opts.card ? 'true' : null, onClick: (e) => { e.preventDefault(); pick(c); } }, c.name, h('span', null, c.deal ? money(c.deal) : 'new deal'))); return out; }));
+      const at = d.cards.findIndex((c) => slugify(c.name) === opts.card);
+      const shown = at >= 0 ? [d.cards[at]] : [];
+      const nav = h('div', { class: 'card-nav' },
+        at > 0 ? h('button', { class: 'btn', type: 'button', onClick: () => pick(d.cards[at - 1]) }, `← ${d.cards[at - 1].name}`) : h('span'),
+        h('span', { class: 'muted small' }, `${at + 1} of ${d.cards.length}`),
+        at < d.cards.length - 1 ? h('button', { class: 'btn', type: 'button', onClick: () => pick(d.cards[at + 1]) }, `${d.cards[at + 1].name} →`) : h('span'));
+      cards.replaceChildren(...(shown.length ? [...shown.map((c) => { const id = slugify(c.name); return h('article', { class: 'acard', id },
+        h('div', { class: 'acard-top' }, h('div', null, h('h3', null, anchorBtn(path, id), c.name), h('div', { class: 'meta' }, `${c.ind} · ${c.region} · Owner: ${c.owner}`)),
+          h('div', { class: 'acard-side' }, h('span', { class: 'pill' }, `Tier ${c.tier} · #${c.rank} by revenue`), h('a', { class: 'btn mini', href: `/api/download?slug=ae-account-cards&format=pdf&card=${id}`, download: '' }, 'Download .pdf'))),
         h('div', { class: 'stats' }, [[money(c.rev), 'Existing annual revenue'], [c.deal ? money(c.deal) : 'None yet', 'Helios deal'], [c.deal ? `${(c.deal / c.rev).toFixed(2)}x` : '—', 'Deal ÷ revenue'], [c.deal ? 'Open' : 'Create', 'CRM action']].map(([v, k]) => h('div', { class: 'stat' }, h('b', null, v), h('span', null, k)))),
         h('h4', null, 'Why now'), h('div', { class: 'why' }, c.why),
         h('div', { class: 'two' }, h('div', null, h('h4', null, 'CRM evidence'), ul(c.ev), h('h4', null, 'Use case'), h('div', null, c.use)), h('div', null, h('h4', null, 'Proof to lead with (Exhibit A)'), ul(c.proof))),
         h('div', { class: 'two' }, h('div', null, h('h4', null, 'Pilot scope'), ul(c.pilot)), h('div', null, h('h4', null, 'Excluded-use checks'), h('div', { class: 'excl' }, ul(c.excl)))),
         h('h4', null, 'Watch out for'), h('div', { class: 'risk' }, c.risk), h('div', { class: 'next' }, h('strong', null, 'Next step'), h('br'), c.next),
-        h('p', { class: 'foot' }, 'Sources: Exhibit A (model capabilities and eval performance) and Exhibit B (CRM export). * BAA / health-data terms are a planning assumption, not stated in the case materials.')); })
-        : [h('div', { class: 'empty' }, 'No cards match.')]));
+        h('p', { class: 'foot' }, 'Sources: Exhibit A (model capabilities and eval performance) and Exhibit B (CRM export). * BAA / health-data terms are a planning assumption, not stated in the case materials.')); }), nav]
+        : [h('div', { class: 'empty' }, 'No card selected.')]));
     }
     search.addEventListener('input', draw);
     body.classList.add('doc-layout');
