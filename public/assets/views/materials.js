@@ -20,7 +20,7 @@ export function mount(root) {
   function item(m, i) {
     const path = `/materials/${m.slug}`;
     const body = h('div', { class: 'mat-body', hidden: true });
-    const toggle = h('button', { class: 'fold', type: 'button', 'aria-expanded': 'false', 'aria-label': `Show ${m.title}` }, h('span', { class: 'fold-caret', 'aria-hidden': 'true' }, '▾'), h('span', { class: 'fold-text' }, 'Show'));
+    const toggle = h('button', { class: 'fold pop', type: 'button', 'aria-expanded': 'false', 'aria-label': `Show ${m.title}` }, h('span', { class: 'fold-caret', 'aria-hidden': 'true' }, '▾'), h('span', { class: 'fold-text' }, 'Show'));
     const row = h('li', { class: 'mat', id: m.slug },
       h('div', { class: 'mat-head', onClick: (e) => { if (!e.target.closest('a')) setOpen(!open.has(m.slug)); } },
         h('div', { class: 'no-col' }, h('div', { class: 'no' }, String(i + 1).padStart(2, '0')), toggle),

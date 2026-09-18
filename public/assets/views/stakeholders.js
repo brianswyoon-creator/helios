@@ -100,7 +100,7 @@ export function mount(root) {
       h('div', { class: 'meta' }, sh.deadline ? h('span', null, `Due: ${sh.deadline}`) : null, HUB.test(sh.name) ? h('span', { class: 'tag' }, 'Launch owner') : null, sh.risk ? h('span', { class: `pill u-${sh.risk.toLowerCase()}` }, `Risk: ${sh.risk}`) : null),
       h('div', { class: 'meta' }, sh.decisions.map((d) => h('span', { class: 'tag' }, d)))));
     // A fold button at the bottom right of every card makes it clear there is more inside.
-    const more = h('div', { class: 'more' }, h('button', { class: 'fold', type: 'button', 'aria-expanded': String(open), onClick: () => { open ? state.open.delete(sh.name) : state.open.add(sh.name); if (!open) history.replaceState(null, '', `#${id}`); drawMap(); } }, h('span', { class: 'fold-caret', 'aria-hidden': 'true' }, '▾'), h('span', { class: 'fold-text' }, open ? 'Less' : 'More')));
+    const more = h('div', { class: 'more' }, h('button', { class: 'fold pop', type: 'button', 'aria-expanded': String(open), onClick: () => { open ? state.open.delete(sh.name) : state.open.add(sh.name); if (!open) history.replaceState(null, '', `#${id}`); drawMap(); } }, h('span', { class: 'fold-caret', 'aria-hidden': 'true' }, '▾'), h('span', { class: 'fold-text' }, open ? 'Less' : 'More')));
     if (open) {
       const byWeek = new Map();
       sh.tasks.forEach((t) => byWeek.set(t.start, [...(byWeek.get(t.start) || []), t.detail]));
@@ -121,7 +121,7 @@ export function mount(root) {
     if (!data || (!changed && state.data)) return;
     state.data = data;
     // Default view: only the first stakeholder (Head of Sales) is unfolded, in both the timeline and the map.
-    if (first && data.stakeholders.length) { data.stakeholders.slice(1).forEach((s) => state.collapsed.add(s.name)); if (!/^#stakeholder-/.test(location.hash)) state.open.add(data.stakeholders[0].name); }
+    if (first && data.stakeholders.length) { data.stakeholders.slice(1).forEach((s) => state.collapsed.add(s.name)); if (!/^#stakeholder-(?!map$)/.test(location.hash)) state.open.add(data.stakeholders[0].name); }
     const n = data.stakeholders.length, tasks = data.stakeholders.reduce((k, s) => k + s.tasks.length, 0);
     head.replaceChildren(h('div', null, h('h1', null, 'Stakeholder Collaboration'),
       h('p', { class: 'lede' }, `${n} stakeholder groups · ${tasks} tasks · ${data.weeks.length} weeks to GA.`)));
