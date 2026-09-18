@@ -7,27 +7,12 @@ import { slug as slugify } from '../model.js';
 const money = (k) => (k == null ? '—' : `$${(k / 1000).toFixed(1)}M`);
 const anchorBtn = (path, id) => h('button', { class: 'anchor', type: 'button', title: 'Copy link to this section', 'aria-label': 'Copy link to this section', onClick: (e) => { e.stopPropagation(); history.replaceState(null, '', `#${id}`); copyLink(`${path}#${id}`, 'Section link copied'); } }, '#');
 
-export function mount(root, { params }) {
-  const slug = params[0];
-  const path = `/materials/${slug}`;
-  const header = h('div');
-  const body = h('div', { class: 'skeleton' }, 'Loading document…');
-  root.replaceChildren(h('div', { class: 'crumbs' }, h('a', { href: '/materials' }, '← Launch Materials Center')), header, body);
-  let first = true;
-  const afterRender = () => { if (first) { first = false; requestAnimationFrame(scrollToHash); } };
-
-  function renderHeader(d) {
-    document.title = `${d.title} · Helios Launch Hub`;
-    header.replaceChildren(
-      h('div', { class: 'page-head', style: { marginBottom: '18px' } },
-        h('div', null, h('h1', null, d.title), h('p', { class: 'lede' }, d.blurb), d.note ? h('p', { class: 'lede', style: { color: 'var(--clay-ink)' } }, d.note) : null),
-        h('div', { class: 'doc-actions' }, d.pdf === false ? null : downloads(d))),
-      wipBanner());
-  }
-
+/** Draw one material (Google Doc, AE cards or Google Sheet tabs) into `body`. Used by the document page and by the fold-out list. */
+export function renderMaterial(body, d, path, opts = {}) {
+  opts.sheetTab ??= opts.inline ? '' : decodeURIComponent(location.hash.slice(1)) || '';
   function renderDoc(d) {
     if (d.source === 'unavailable') {
-      body.className = '';
+      body.classList.remove('doc-layout');
       body.replaceChildren(h('div', { class: 'empty' }, h('h3', null, `This Google ${d.kind === 'gsheet' ? 'Sheet' : 'Doc'} can’t be read yet`), h('p', null, 'Share it as “Anyone with the link: Viewer” and it will appear here automatically within a few seconds.'),
         h('p', { class: 'small muted' }, d.error), h('a', { class: 'btn', href: d.docUrl, target: '_blank', rel: 'noopener' }, `Open in Google ${d.kind === 'gsheet' ? 'Sheets' : 'Docs'}`)));
       return;
@@ -36,7 +21,7 @@ export function mount(root, { params }) {
     article.querySelectorAll('h1[id],h2[id],h3[id],h4[id],h5[id],h6[id]').forEach((el) => el.prepend(anchorBtn(path, el.id)));
     const top = Math.min(...d.headings.map((x) => x.level), 6);
     const toc = d.headings.filter((x) => x.level - top < 3);
-    body.className = 'doc-layout';
+    body.classList.add('doc-layout');
     body.replaceChildren(
       h('nav', { class: 'toc', 'aria-label': 'On this page' }, h('h4', null, 'On this page'), toc.length ? toc.map((x) => h('a', { class: `l${x.level - top + 1}`, href: `#${x.id}` }, x.text)) : h('span', { class: 'muted small' }, 'No headings'),
         h('p', { class: 'small muted', style: { marginTop: '14px' } }, `${d.words.toLocaleString('en-US')} words`)),
@@ -64,19 +49,18 @@ export function mount(root, { params }) {
         : [h('div', { class: 'empty' }, 'No cards match.')]));
     }
     search.addEventListener('input', draw);
-    body.className = 'doc-layout';
+    body.classList.add('doc-layout');
     body.replaceChildren(h('nav', { class: 'toc', 'aria-label': 'Accounts' }, h('label', { class: 'field' }, 'Find a card', search), index), cards);
     draw();
   }
 
-  let sheetTab = decodeURIComponent(location.hash.slice(1)) || '';
   function renderSheet(d) {
-    body.className = '';
+    body.classList.remove('doc-layout');
     if (d.source === 'unavailable') return renderDoc(d);
     const tabs = d.tabs || [];
-    if (!tabs.some((t) => slugify(t.name) === sheetTab)) sheetTab = tabs[0] ? slugify(tabs[0].name) : '';
-    const nav = h('div', { class: 'seg big', role: 'tablist' }, tabs.map((t) => h('button', { type: 'button', role: 'tab', 'aria-pressed': String(slugify(t.name) === sheetTab), onClick: () => { sheetTab = slugify(t.name); history.replaceState(null, '', `#${sheetTab}`); renderSheet(d); } }, t.name)));
-    const t = tabs.find((x) => slugify(x.name) === sheetTab);
+    if (!tabs.some((t) => slugify(t.name) === opts.sheetTab)) opts.sheetTab = tabs[0] ? slugify(tabs[0].name) : '';
+    const nav = h('div', { class: 'seg big', role: 'tablist' }, tabs.map((t) => h('button', { type: 'button', role: 'tab', 'aria-pressed': String(slugify(t.name) === opts.sheetTab), onClick: () => { opts.sheetTab = slugify(t.name); if (!opts.inline) history.replaceState(null, '', `#${opts.sheetTab}`); renderSheet(d); } }, t.name)));
+    const t = tabs.find((x) => slugify(x.name) === opts.sheetTab);
     const cell = (v) => h('td', { style: { whiteSpace: 'pre-line' } }, v);
     body.replaceChildren(nav, !t ? h('div', { class: 'empty' }, 'This sheet has no readable tabs.') : h('div', { style: { marginTop: '16px' } },
       t.title ? h('p', { class: 'muted small' }, t.title) : null,
@@ -84,17 +68,39 @@ export function mount(root, { params }) {
         h('tbody', null, t.rows.map((r) => h('tr', null, r.map(cell))))))));
   }
 
+  if (d.kind === 'cards') renderCards(d);
+  else if (d.kind === 'gsheet') renderSheet(d);
+  else renderDoc(d);
+}
+
+export function mount(root, { params }) {
+  const slug = params[0];
+  const path = `/materials/${slug}`;
+  const header = h('div');
+  const body = h('div', { class: 'skeleton' }, 'Loading document…');
+  root.replaceChildren(h('div', { class: 'crumbs' }, h('a', { href: '/materials' }, '← Launch Materials Center')), header, body);
+  let first = true;
+  const sheetOpts = {};
+  const afterRender = () => { if (first) { first = false; requestAnimationFrame(scrollToHash); } };
+
+  function renderHeader(d) {
+    document.title = `${d.title} · Helios Launch Hub`;
+    header.replaceChildren(
+      h('div', { class: 'page-head', style: { marginBottom: '18px' } },
+        h('div', null, h('h1', null, d.title), h('p', { class: 'lede' }, d.blurb), d.note ? h('p', { class: 'lede', style: { color: 'var(--clay-ink)' } }, d.note) : null),
+        h('div', { class: 'doc-actions' }, d.pdf === false ? null : downloads(d))),
+      wipBanner());
+  }
+
   const st = store(`/api/doc?slug=${encodeURIComponent(slug)}`);
   let rendered = false;
   const off = st.subscribe(({ data, error, changed }) => {
     setStatus(data, error);
     if (!data) { if (error) body.replaceChildren(h('div', { class: 'empty' }, 'Could not load this document. Retrying…')); return; }
-    if (data.error && !data.kind) { body.className = ''; body.replaceChildren(h('div', { class: 'empty' }, h('h3', null, 'Document not found'), h('a', { href: '/materials' }, 'Back to the Launch Materials Center'))); return; }
+    if (data.error && !data.kind) { body.classList.remove('doc-layout'); body.replaceChildren(h('div', { class: 'empty' }, h('h3', null, 'Document not found'), h('a', { href: '/materials' }, 'Back to the Launch Materials Center'))); return; }
     if (rendered && !changed) return;
     renderHeader(data);
-    if (data.kind === 'cards') renderCards(data);
-    else if (data.kind === 'gsheet') renderSheet(data);
-    else { const y = window.scrollY; renderDoc(data); if (rendered) window.scrollTo(0, y); }
+    const y = window.scrollY; renderMaterial(body, data, path, sheetOpts); if (rendered) window.scrollTo(0, y);
     rendered = true;
     afterRender();
   });

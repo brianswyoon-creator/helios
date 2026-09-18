@@ -76,6 +76,9 @@ export function subStatusOf(a) {
 export function enrich(accounts) {
   return accounts.map((a, i) => ({ ...a, i, bucket: bucketOf(a), subStatus: subStatusOf(a), tier: tierOf(a), fit: fitOf(a), urgency: urgencyOf(a), oppM: a.oppK / 1000 }));
 }
+/** Closed-won Helios deals: opportunity size of accounts whose status is "Closed Won" (none yet in the sheet). */
+export const closedWon = (rows) => rows.filter((a) => /^closed[\s-]?won$/i.test(a.status));
+
 /** Summary tiles: one per sub-status ($M and account count). */
 export function tileSummary(rows) {
   const known = SUB_STATUSES.map((status) => { const list = rows.filter((a) => a.subStatus === status); return { status, m: sumM(list), n: list.length }; });

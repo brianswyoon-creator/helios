@@ -25,7 +25,7 @@ export function mount(root) {
     h('div', { class: 'toolbar', style: { marginBottom: '14px' } }, h('button', { class: 'btn', type: 'button', onClick: () => { const all = state.data?.stakeholders || []; const openAll = state.open.size < all.length; state.open = new Set(openAll ? all.map((s) => s.name) : []); drawMap(); } }, 'Open / close all')),
     map);
   // Two large tabs switch between the timeline and the map; the address (#timeline / #stakeholder-map) follows.
-  const tabs = h('div', { class: 'seg big', role: 'tablist' }, [['timeline', '4-week timeline'], ['map', 'Stakeholder map']].map(([id, label]) =>
+  const tabs = h('div', { class: 'seg big', role: 'tablist' }, [['timeline', '4 Week Timeline'], ['map', 'Stakeholder Map']].map(([id, label]) =>
     h('button', { type: 'button', role: 'tab', 'data-tab': id, onClick: () => { state.tab = id; history.replaceState(null, '', id === 'map' ? '#stakeholder-map' : '#timeline'); showTab(); } }, label)));
   function showTab() {
     tabs.querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tab === state.tab)));
@@ -46,7 +46,7 @@ export function mount(root) {
     const { weeks, stakeholders } = state.data;
     urgChips.querySelectorAll('[data-u]').forEach((b) => b.setAttribute('aria-pressed', String(state.urgency.has(b.dataset.u))));
     const grid = h('div', { class: 'tl', style: { '--weeks': weeks.length }, role: 'table', 'aria-label': 'Stakeholder timeline' });
-    grid.append(h('div', { class: 'th' }, 'Stakeholder / Task'), ...weeks.map((w, i) => h('div', { class: `th wk${i === weeks.length - 1 ? ' ga' : ''}` }, w.label)), h('div', { class: 'th due' }, 'Due'));
+    grid.append(h('div', { class: 'th' }, 'Stakeholder / Task'), ...weeks.map((w, i) => h('div', { class: `th wk${i === weeks.length - 1 ? ' ga' : ''}` }, w.label)));
     let tasks = 0, owners = 0;
     const bands = [...BANDS, ...new Set(stakeholders.map((s) => s.urgency).filter((u) => !BANDS.includes(u)))];
     for (const band of bands) {
@@ -74,7 +74,6 @@ export function mount(root) {
             } else if (w.n > t.start && w.n <= t.end) return;
             grid.append(cell);
           });
-          grid.append(h('div', { class: 'due' }, t.due));
         }
       }
     }
@@ -100,6 +99,8 @@ export function mount(root) {
       h('div', { class: 'top' }, h('div', { class: 'nm' }, sh.name), h('span', { class: 'tag' }, sh.team || '—')),
       h('div', { class: 'meta' }, sh.deadline ? h('span', null, `Due: ${sh.deadline}`) : null, HUB.test(sh.name) ? h('span', { class: 'tag' }, 'Launch owner') : null, sh.risk ? h('span', { class: `pill u-${sh.risk.toLowerCase()}` }, `Risk: ${sh.risk}`) : null),
       h('div', { class: 'meta' }, sh.decisions.map((d) => h('span', { class: 'tag' }, d)))));
+    // A fold button at the bottom right of every card makes it clear there is more inside.
+    const more = h('div', { class: 'more' }, h('button', { class: 'fold', type: 'button', 'aria-expanded': String(open), onClick: () => { open ? state.open.delete(sh.name) : state.open.add(sh.name); if (!open) history.replaceState(null, '', `#${id}`); drawMap(); } }, h('span', { class: 'fold-caret', 'aria-hidden': 'true' }, '▾'), h('span', { class: 'fold-text' }, open ? 'Less' : 'More')));
     if (open) {
       const byWeek = new Map();
       sh.tasks.forEach((t) => byWeek.set(t.start, [...(byWeek.get(t.start) || []), t.detail]));
@@ -109,6 +110,7 @@ export function mount(root) {
         sh.resolution ? [h('h4', null, 'Resolution'), h('p', null, sh.resolution)] : null,
         byWeek.size ? [h('h4', null, 'Tasks by week'), h('ul', null, [...byWeek].sort((a, b) => a[0] - b[0]).map(([w, items]) => h('li', null, h('strong', null, `W${w}: `), items.join('; '))))] : null));
     }
+    el.append(more);
     return el;
   }
 
@@ -118,6 +120,8 @@ export function mount(root) {
     setStatus(data, error);
     if (!data || (!changed && state.data)) return;
     state.data = data;
+    // Default view: only the first stakeholder (Head of Sales) is unfolded, in both the timeline and the map.
+    if (first && data.stakeholders.length) { data.stakeholders.slice(1).forEach((s) => state.collapsed.add(s.name)); if (!/^#stakeholder-/.test(location.hash)) state.open.add(data.stakeholders[0].name); }
     const n = data.stakeholders.length, tasks = data.stakeholders.reduce((k, s) => k + s.tasks.length, 0);
     head.replaceChildren(h('div', null, h('h1', null, 'Stakeholder Collaboration'),
       h('p', { class: 'lede' }, `${n} stakeholder groups · ${tasks} tasks · ${data.weeks.length} weeks to GA.`)));

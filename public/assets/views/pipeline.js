@@ -1,29 +1,24 @@
 // Pipeline Dashboard: summary strip, waterfall, sellable-by-industry, account scatter. Each chart has a Chart / Table switch.
 import { h, responsive, multiSelect } from '../ui.js';
 import { accountsStore, setStatus, setQuery, navigate } from '../app.js';
-import { enrich, tileSummary, waterfall, byIndustry, scatter, FILTERS, INDUSTRIES, fmtM, sumM } from '../model.js';
+import { enrich, closedWon, waterfall, byIndustry, scatter, FILTERS, INDUSTRIES, fmtM, sumM } from '../model.js';
 import { drawWaterfall, drawIndustry, drawScatter, legend } from '../charts.js';
 
-const TILES = {
-  'Wave 1 — Helios deal in play': { label: 'Wave 1', color: 'var(--c-sellable)' },
-  'Wave 1 — No Helios deal yet': { label: 'No Helios Deal Yet', note: 'Part of Wave 1', color: 'var(--c-sellable)' },
-  'Wave 2 — Opportunities in play': { label: 'Wave 2', color: 'var(--c-wave)' },
-  'Wave 2 — On hold (EU data)': { label: 'On Hold (EU data)', note: 'Part of Wave 2', color: 'var(--c-wave)' },
-  Disqualified: { label: 'Disqualified', color: 'var(--c-removed)' },
-  Requalify: { label: 'Requalify', color: 'var(--c-hold)' },
-  'Open New Helios Deal': { label: 'Open New Helios Deal', color: '#7b6bb5' },
-  'Text-Only': { label: 'Text-Only', color: 'var(--c-other)' },
-  'On Hold': { label: 'On-Hold', color: 'var(--c-hold)' },
-};
+// Closed-won target for the progress bar: the $67M sellable at GA. The bar fills as accounts in the sheet are marked "Closed Won".
+const CLOSED_WON_TARGET_M = 67;
 const clamp = (v, d) => { const n = Number(v); return v != null && v !== '' && n >= 0 && n <= 10 ? Math.round(n) : d; };
 const num = (v) => h('td', { class: 'num' }, v);
 const table = (heads, rows) => h('div', { class: 'table-wrap' }, h('table', { class: 'data' }, h('thead', null, h('tr', null, heads.map(([t, cls]) => h('th', { class: cls }, t)))), h('tbody', null, rows)));
-/** A section with its own Chart / Table switch. */
-function section(id, title, blurb, onSwitch) {
+/** A section with its own Chart / Table switch and a Show / Hide fold. */
+function section(id, title, blurb, onSwitch, { open = true } = {}) {
   const seg = h('div', { class: 'seg small', role: 'group', 'aria-label': `${title}: chart or table` },
     ['Chart', 'Table'].map((t, i) => h('button', { type: 'button', onClick: () => onSwitch(!!i) }, t)));
-  const el = h('section', { class: 'card', id }, h('div', { class: 'card-head' }, h('div', null, h('h2', null, title), blurb ? h('p', null, blurb) : null), seg));
-  return { el, setMode: (isTable) => [...seg.children].forEach((b, i) => b.setAttribute('aria-pressed', String(isTable === !!i))) };
+  const fold = h('button', { class: 'fold', type: 'button', 'aria-expanded': String(open), 'aria-controls': id }, h('span', { class: 'fold-caret', 'aria-hidden': 'true' }, '▾'), h('span', { class: 'fold-text' }, open ? 'Hide' : 'Show'));
+  const el = h('section', { class: `card${open ? '' : ' folded'}`, id }, h('div', { class: 'card-head' }, h('div', null, h('h2', null, title), blurb ? h('p', null, blurb) : null), h('div', { class: 'toolbar', style: { alignItems: 'center' } }, seg, fold)));
+  let isOpen = open;
+  const setOpen = (on) => { isOpen = on; el.classList.toggle('folded', !on); fold.setAttribute('aria-expanded', String(on)); fold.querySelector('.fold-text').textContent = on ? 'Hide' : 'Show'; if (on) el.dispatchEvent(new CustomEvent('unfold')); };
+  fold.addEventListener('click', () => setOpen(!isOpen));
+  return { el, setMode: (isTable) => [...seg.children].forEach((b, i) => b.setAttribute('aria-pressed', String(isTable === !!i))), setOpen, isOpen: () => isOpen };
 }
 
 export function mount(root, { query }) {
@@ -40,7 +35,7 @@ export function mount(root, { query }) {
 
   const head = h('div', { class: 'page-head' });
   const notice = h('div');
-  const tiles = h('div');
+  const progress = h('div');
   const filterOptions = FILTERS.map((f) => ({ value: f.bucket, label: f.toggle }));
   const addBackSel = multiSelect({ options: filterOptions, values: state.addBack, placeholder: 'None — all filters on', label: 'Add back filters (waterfall)' }, () => { sync(); drawWf(); });
   const addBackIndSel = multiSelect({ options: filterOptions, values: state.addBackInd, placeholder: 'None — all filters on', label: 'Add back filters (industry)' }, () => { sync(); drawInd(); });
@@ -52,12 +47,15 @@ export function mount(root, { query }) {
   const scControls = h('div', { class: 'toolbar', style: { marginBottom: '12px' } });
 
   const wfSec = section('waterfall', 'Pipeline Waterfall', 'Tick filters to add that pipeline back.', (t) => { state.table.wf = t; drawWf(); });
-  const indSec = section('industry', 'Sellable at GA by Industry', 'Baseline, plus anything you add back here.', (t) => { state.table.ind = t; drawInd(); });
-  const scSec = section('scatter', 'Account Scatter: Fit vs. Urgency', 'Weights (0–10) re-rank the accounts; the top 20 by weighted score are highlighted. Click a bubble to open the account in the CRM.', (t) => { state.table.sc = t; drawSc(); });
+  const indSec = section('industry', 'Sellable at GA by Industry', 'Baseline, plus anything you add back here.', (t) => { state.table.ind = t; drawInd(); }, { open: false });
+  const scSec = section('scatter', 'Account Scatter: Fit vs. Urgency', 'Weights (0–10) re-rank the accounts; the top 20 by weighted score are highlighted. Click a bubble to open the account in the CRM.', (t) => { state.table.sc = t; drawSc(); }, { open: false });
+  // Charts measure their container, so a section that starts folded draws itself when first opened.
+  indSec.el.addEventListener('unfold', () => drawInd());
+  scSec.el.addEventListener('unfold', () => drawSc());
   wfSec.el.append(h('div', { class: 'toolbar', style: { marginBottom: '14px' } }, h('div', { class: 'field' }, 'Add back', addBackSel)), wfEl, wfLegend, wfSummary);
   indSec.el.append(h('div', { class: 'toolbar', style: { marginBottom: '14px' } }, h('div', { class: 'field' }, 'Add back', addBackIndSel)), indEl, indLegend);
   scSec.el.append(sliders, scControls, scEl, scLegend);
-  root.replaceChildren(head, notice, tiles, wfSec.el, indSec.el, scSec.el);
+  root.replaceChildren(head, notice, progress, wfSec.el, indSec.el, scSec.el);
 
   [['fit', 'Fit weight'], ['urgency', 'Urgency weight'], ['size', 'Deal size weight']].forEach(([k, label]) => {
     const val = h('b', null, String(state.weights[k]));
@@ -118,12 +116,18 @@ export function mount(root, { query }) {
     const total = sumM(state.rows);
     head.replaceChildren(h('div', null, h('h1', null, 'Pipeline Dashboard'), h('p', { class: 'lede' }, `${state.rows.length} target accounts · ${fmtM(total)} open pipeline, by Account Status for Helios GA.`)));
     notice.replaceChildren(p.source === 'snapshot' ? h('div', { class: 'notice' }, h('strong', null, 'Showing the built-in snapshot'), ` (${p.snapshotDate}). The Google Sheet could not be read, so live updates are paused. Share the sheet as “Anyone with the link: Viewer”, then press the status button (top right) to retry.`) : '');
-    tiles.replaceChildren(
-      h('div', { class: 'tiles' }, tileSummary(state.rows).map((t) => { const cfg = TILES[t.status] || { label: t.status, color: 'var(--c-other)' }; return h('a', { class: 'tile', href: `/crm?status=${encodeURIComponent(t.status)}`, style: { '--tile': cfg.color } },
-        h('div', { class: 'k' }, `${cfg.label} ($M)`), h('div', { class: 'v' }, `$${t.m.toFixed(1)}`, h('small', null, 'M')), h('div', { class: 'n' }, `${cfg.note ? `${cfg.note} · ` : ''}${t.n} account${t.n === 1 ? '' : 's'}`)); })));
+    const won = closedWon(state.rows);
+    const wonM = sumM(won);
+    const pct = Math.max(0, Math.min(100, (wonM / CLOSED_WON_TARGET_M) * 100));
+    progress.replaceChildren(h('div', { class: 'progress', role: 'group', 'aria-label': 'Helios GA closed won deals' },
+      h('div', { class: 'lab' }, 'Helios GA Closed Won Deals ($M)', h('small', null, `${won.length} deal${won.length === 1 ? '' : 's'} closed won · target $${CLOSED_WON_TARGET_M}M`)),
+      h('div', null,
+        h('div', { class: 'track', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': CLOSED_WON_TARGET_M, 'aria-valuenow': wonM.toFixed(1) },
+          h('div', { class: 'fill', style: { width: `${pct}%` } }), h('span', { class: 'val' }, `${fmtM(wonM)} of $${CLOSED_WON_TARGET_M}M (${pct.toFixed(0)}%)`)),
+        h('div', { class: 'ticks' }, h('span', null, '$0M'), h('span', null, `$${CLOSED_WON_TARGET_M}M`)))));
     const known = new Set(state.rows.map((a) => a.industry));
     indChips.replaceChildren(...[...INDUSTRIES.filter((i) => known.has(i)), ...[...known].filter((i) => !INDUSTRIES.includes(i))].map((name) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(state.industries.has(name)), onClick: (e) => { state.industries.has(name) ? state.industries.delete(name) : state.industries.add(name); e.currentTarget.setAttribute('aria-pressed', String(state.industries.has(name))); sync(); drawSc(); } }, name)));
-    drawWf(); drawInd(); drawSc();
+    drawWf(); if (indSec.isOpen()) drawInd(); if (scSec.isOpen()) drawSc();
   }
 
   const st = accountsStore();

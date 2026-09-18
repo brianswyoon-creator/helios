@@ -56,6 +56,8 @@ export function mount(root, { query }) {
     const match = (a) => (!q || a.name.toLowerCase().includes(q) || a.owner.toLowerCase().includes(q)) && (!state.status || a.subStatus === state.status || a.status === state.status) && (!state.industry || a.industry === state.industry);
     const groups = crmGroups(state.rows, state.view).map((g) => ({ ...g, shown: g.rows.filter(match) })).filter((g) => g.shown.length);
     const shown = groups.reduce((n, g) => n + g.shown.length, 0), total = crmGroups(state.rows, state.view).reduce((n, g) => n + g.n, 0);
+    // The first account starts open so it is obvious that rows hold notes.
+    if (!state.touched && groups.length && !state.open.size) state.open.add(`${groups[0].title}|${groups[0].shown[0].name}`);
     const filtered = !!(q || state.status || state.industry);
     const chipFor = (label, reset) => h('button', { class: 'chip', type: 'button', title: 'Remove this filter', onClick: () => { reset(); search.value = state.q; sync(); fillSelects(); renderList(); } }, label, h('span', { 'aria-hidden': 'true' }, '✕'));
     active.replaceChildren(...(filtered ? [h('span', { class: 'small muted' }, 'Showing only:'),
@@ -83,7 +85,7 @@ export function mount(root, { query }) {
         ratio ? h('div', null, h('h4', null, 'Deal ÷ revenue'), h('p', null, h('strong', null, ratio), h('span', { class: 'muted' }, ' · Helios opportunity as a multiple of current annual revenue'))) : null),
       h('div', { class: 'detail-grid' },
         h('div', null, h('h4', null, 'Next steps / actions'), h('p', null, a.next || '—')), h('div', null, h('h4', null, 'Opportunity notes'), h('p', null, a.oppNotes || '—')), h('div', null, h('h4', null, 'Account notes'), h('p', null, a.acctNotes || '—'))))));
-    const toggle = () => { state.open.has(id) ? state.open.delete(id) : state.open.add(id); detail.hidden = !state.open.has(id); tr.setAttribute('aria-expanded', String(state.open.has(id))); };
+    const toggle = () => { state.touched = true; state.open.has(id) ? state.open.delete(id) : state.open.add(id); detail.hidden = !state.open.has(id); tr.setAttribute('aria-expanded', String(state.open.has(id))); };
     tr.addEventListener('click', toggle);
     tr.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
     return [tr, detail];
