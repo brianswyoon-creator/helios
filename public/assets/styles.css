@@ -261,7 +261,6 @@ tr.detail td { background: var(--tint-clay); padding: 14px 18px 18px; border-lef
 .mat-head { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 4px 12px; align-items: start; padding: 12px 8px; margin: 0 -8px; cursor: pointer; }
 .mat-head:hover { background: var(--surface-2); }
 .mat-head:hover h3 a { text-decoration: underline; }
-.no-col { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
 .mat .fold.pop { font-size: 11px; padding: 1px 8px; gap: 5px; }
 .mat .fold.pop .fold-caret { font-size: 10px; }
 .fold { border: 1px solid var(--ink); background: var(--surface); border-radius: 4px; padding: 6px 14px; font-size: 15px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; color: var(--ink); }
@@ -276,11 +275,14 @@ tr.detail td { background: var(--tint-clay); padding: 14px 18px 18px; border-lef
 .mat .wip-note { color: var(--clay-ink); font-size: 14px; margin-top: 2px; }
 .mat .no { color: var(--ink-3); font-variant-numeric: tabular-nums; align-self: start; padding-top: 1px; }
 .mat h3 a { text-decoration: none; }
-.mat .actions { align-self: center; }
+.mat .actions { align-self: stretch; }
 .mat h3 a:hover { text-decoration: underline; }
 .mat p { margin: 1px 0 0; color: var(--ink-2); font-size: 15px; }
 .mat .kind { font-size: 13px; color: var(--ink-3); }
 .mat .actions, .doc-actions { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+/* Launch Materials rows: Download on top, the Show / Hide button pinned to the bottom right of the block. */
+.mat .actions { flex-direction: column; flex-wrap: nowrap; align-items: flex-end; justify-content: flex-start; gap: 8px; }
+.mat .actions .fold { margin-top: auto; }
 .crumbs { font-size: 14px; color: var(--ink-2); margin-bottom: 14px; }
 .doc-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 48px; align-items: start; margin-top: 8px; }
 .toc { position: sticky; top: 76px; max-height: calc(100vh - 100px); overflow-y: auto; font-size: 14px; }
@@ -354,7 +356,8 @@ tr.detail td { background: var(--tint-clay); padding: 14px 18px 18px; border-lef
   .doc-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .toc { position: static; max-height: none; border-bottom: 1px solid var(--line); padding-bottom: 10px; }
   .mat-head { grid-template-columns: 44px minmax(0, 1fr); }
-  .mat .actions { grid-column: 2; justify-content: flex-start; }
+  .mat .actions { grid-column: 2; flex-direction: row; align-items: center; justify-content: space-between; }
+  .mat .actions .fold { margin-top: 0; margin-left: auto; }
   .mat-body { padding-left: 0; }
   .progress { grid-template-columns: minmax(0, 1fr); }
   .detail-grid, .acard .two, .sliders { grid-template-columns: minmax(0, 1fr); }

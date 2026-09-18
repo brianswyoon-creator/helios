@@ -23,9 +23,9 @@ export function mount(root) {
     const toggle = h('button', { class: 'fold pop', type: 'button', 'aria-expanded': 'false', 'aria-label': `Show ${m.title}` }, h('span', { class: 'fold-caret', 'aria-hidden': 'true' }, '▾'), h('span', { class: 'fold-text' }, 'Show'));
     const row = h('li', { class: 'mat', id: m.slug },
       h('div', { class: 'mat-head', onClick: (e) => { if (!e.target.closest('a')) setOpen(!open.has(m.slug)); } },
-        h('div', { class: 'no-col' }, h('div', { class: 'no' }, String(i + 1).padStart(2, '0')), toggle),
+        h('div', { class: 'no' }, String(i + 1).padStart(2, '0')),
         h('div', null, h('h3', null, h('a', { href: path, title: 'Open on its own page' }, m.title)), h('p', null, m.blurb), m.note ? h('div', { class: 'wip-note' }, m.note) : null),
-        h('div', { class: 'actions' }, m.pdf === false ? null : downloads(m))),
+        h('div', { class: 'actions' }, m.pdf === false ? null : downloads(m), toggle)),
       body);
     const opts = { inline: true };
     function setOpen(on) {
