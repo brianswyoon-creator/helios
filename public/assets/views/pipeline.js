@@ -4,6 +4,8 @@ import { accountsStore, setStatus, setQuery, navigate } from '../app.js';
 import { enrich, statusSummary, waterfall, byIndustry, scatter, FILTERS, INDUSTRIES, fmtM, sumM } from '../model.js';
 import { drawWaterfall, drawIndustry, drawScatter, legend } from '../charts.js';
 
+// Wave 1 and Wave 2 have their own CRM views (same as the sheet tabs); every other status is a filter on the full list.
+const crmLink = (status) => (status === 'Wave 1' ? '/crm?view=wave-1' : status === 'Wave 2' ? '/crm?view=wave-2' : `/crm?status=${encodeURIComponent(status)}`);
 const TILE_COLOR = { 'Wave 1': 'var(--c-sellable)', 'Wave 2': 'var(--c-wave)', Disqualified: 'var(--c-removed)', Requalify: 'var(--c-hold)', 'Open New Helios Deal': '#7b6bb5', 'Text-Only': 'var(--c-other)', 'On Hold': 'var(--c-hold)' };
 
 export function mount(root, { query }) {
@@ -35,17 +37,17 @@ export function mount(root, { query }) {
     head, notice, tiles,
     h('section', { class: 'card section', id: 'waterfall' },
       h('div', { class: 'card-head' },
-        h('div', null, h('h2', null, 'Pipeline Waterfall'), h('p', null, 'From total pipeline to what is sellable at GA. Switch a filter off to add that pipeline back and test a scenario; the industry chart below follows the same switches.')),
+        h('div', null, h('h2', null, 'Pipeline Waterfall'), h('p', null, 'Tick a filter to add that pipeline back. The industry chart follows the same ticks.')),
         wfToggle),
-      h('div', { class: 'small muted', style: { marginBottom: '8px' } }, 'Add back (filter off):'),
+      h('div', { class: 'small muted', style: { marginBottom: '6px' } }, 'Add back'),
       filterChips, h('div', { style: { height: '14px' } }), wfEl, wfLegend, wfSummary),
     h('div', { class: 'grid-2' },
       h('section', { class: 'card', id: 'industry' },
-        h('div', { class: 'card-head' }, h('div', null, h('h2', null, 'Sellable at GA by Industry'), h('p', null, 'Baseline with all filters on, plus anything added back by the scenario switches above.'))),
+        h('div', { class: 'card-head' }, h('div', null, h('h2', null, 'Sellable at GA by Industry'), h('p', null, 'Baseline, plus anything added back above.'))),
         indEl, legend(['sellable', 'added']), indTable),
       h('section', { class: 'card', id: 'scatter' },
-        h('div', { class: 'card-head' }, h('div', null, h('h2', null, 'Account Scatter: Fit vs. Urgency'), h('p', null, 'Bubble size is deal size ($M). Change the weights (0–10) to re-rank; the top 20 by weighted score are highlighted. Click a bubble to open the account in the CRM.'))),
-        sliders, h('div', { class: 'small muted', style: { margin: '2px 0 8px' } }, 'Highlight industries:'), indChips, h('div', { style: { height: '10px' } }), scEl,
+        h('div', { class: 'card-head' }, h('div', null, h('h2', null, 'Account Scatter: Fit vs. Urgency'), h('p', null, 'Bubble size = deal size ($M). Weights (0–10) re-rank the top 20.'))),
+        sliders, h('div', { class: 'small muted', style: { margin: '2px 0 8px' } }, 'Highlight'), indChips, h('div', { style: { height: '10px' } }), scEl,
         h('div', { class: 'legend' }, h('span', null, h('i', { style: { background: 'var(--c-removed)', borderRadius: '50%' } }), 'Top 20 by weighted score'), h('span', null, h('i', { style: { background: 'var(--c-other)', borderRadius: '50%' } }), 'Other accounts')),
         topList)));
 
@@ -103,15 +105,16 @@ export function mount(root, { query }) {
     const p = state.payload;
     const total = sumM(state.rows);
     head.replaceChildren(
-      h('div', null, h('div', { class: 'eyebrow' }, 'Helios GA launch'), h('h1', null, 'Pipeline Dashboard'),
-        h('p', { class: 'lede' }, `${state.rows.length} target accounts and ${fmtM(total)} of open pipeline, sorted into what we can sell at GA, what waits, and what we walk away from.`)),
-      h('div', { class: 'source' }, 'Source: ', h('a', { href: p.sheetUrl, target: '_blank', rel: 'noopener' }, 'Target Account List ↗'), h('br'), `tab “${p.tab || 'TargetAccounts'}”`));
+      h('div', null, h('h1', null, 'Pipeline Dashboard'),
+        h('p', { class: 'lede' }, `${state.rows.length} target accounts · ${fmtM(total)} open pipeline, by Account Status for Helios GA.`)),
+      h('div', { class: 'source' }, 'Source: ', h('a', { href: p.sheetUrl, target: '_blank', rel: 'noopener' }, 'Target Account List'), h('br'), `tab “${p.tab || 'TargetAccounts'}”`));
     notice.replaceChildren(p.source === 'snapshot' ? h('div', { class: 'notice' }, h('strong', null, 'Showing the built-in snapshot'), ` (${p.snapshotDate}). The Google Sheet could not be read, so live updates are paused. Share the sheet as “Anyone with the link: Viewer”, then press the status button (top right) to retry.`) : '');
     const summary = statusSummary(state.rows);
     tiles.replaceChildren(
-      h('div', { class: 'tiles' }, summary.map((t) => h('a', { class: 'tile', href: `/crm?status=${encodeURIComponent(t.status)}`, style: { '--tile': TILE_COLOR[t.status] }, title: `Open ${t.status} accounts in the CRM` },
-        h('div', { class: 'k' }, `${t.status === 'On Hold' ? 'On-Hold' : t.status} ($M)`), h('div', { class: 'v' }, `$${t.m.toFixed(1)}`, h('small', null, 'M')), h('div', { class: 'n' }, `${t.n} account${t.n === 1 ? '' : 's'}`)))),
-      h('div', { class: 'tiles-foot' }, `Opportunity size by “Account Status for Helios GA”. The seven statuses add up to the ${fmtM(total)} total pipeline. Click a tile to see those accounts.`));
+      h('div', { class: 'tiles' }, summary.map((t) => h('a', { class: 'tile', href: crmLink(t.status), style: { '--tile': TILE_COLOR[t.status] } },
+        h('div', { class: 'k' }, `${t.status === 'On Hold' ? 'On-Hold' : t.status} ($M)`), h('div', { class: 'v' }, `$${t.m.toFixed(1)}`, h('small', null, 'M')), h('div', { class: 'n' }, `${t.n} account${t.n === 1 ? '' : 's'}`),
+        h('div', { class: 'go' }, 'View accounts →')))),
+      h('div', { class: 'tiles-foot' }, `Opportunity size by Account Status for Helios GA. Sums to ${fmtM(total)}.`));
     const known = new Set(state.rows.map((a) => a.industry));
     indChips.replaceChildren(...[...INDUSTRIES.filter((i) => known.has(i)), ...[...known].filter((i) => !INDUSTRIES.includes(i))].map((name) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String(state.industries.has(name)), onClick: (e) => { state.industries.has(name) ? state.industries.delete(name) : state.industries.add(name); e.currentTarget.setAttribute('aria-pressed', String(state.industries.has(name))); sync(); drawSc(); } }, name)));
     drawAll();

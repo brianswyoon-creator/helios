@@ -1,5 +1,5 @@
 // Stakeholder Collaboration: interactive 4-week timeline (like the sheet tab) + stakeholder map.
-import { h, bindTip, tipRow, copyLink } from '../ui.js';
+import { h, bindTip, tipRow } from '../ui.js';
 import { stakeholdersStore, setStatus, scrollToHash } from '../app.js';
 import { slug } from '../model.js';
 
@@ -20,14 +20,14 @@ export function mount(root) {
   root.replaceChildren(head, notice,
     h('div', { class: 'subnav' }, h('a', { class: 'btn', href: '#timeline' }, '4-week timeline'), h('a', { class: 'btn', href: '#stakeholder-map' }, 'Stakeholder map')),
     h('section', { id: 'timeline' },
-      h('div', { class: 'card-head' }, h('div', null, h('h2', null, '4-Week Timeline to GA'), h('p', null, 'Hover, focus or tap a bar to see exactly what has to happen in that week. Click a stakeholder row to fold it away.')),
+      h('div', { class: 'card-head' }, h('div', null, h('h2', null, '4-Week Timeline to GA'), h('p', null, 'Hover a bar for the full task.')),
         h('div', { class: 'toolbar' }, h('label', { class: 'field' }, 'Team', teamSel))),
       h('div', { class: 'toolbar', style: { marginBottom: '14px', alignItems: 'center' } }, urgChips, weekSeg,
         h('button', { class: 'btn ghost', type: 'button', onClick: () => { state.collapsed.clear(); draw(); } }, 'Expand all'),
         h('button', { class: 'btn ghost', type: 'button', onClick: () => { state.data?.stakeholders.forEach((s) => state.collapsed.add(s.name)); draw(); } }, 'Collapse all'), tlMeta),
       tl),
     h('section', { id: 'stakeholder-map', style: { marginTop: '56px' } },
-      h('div', { class: 'card-head' }, h('div', null, h('h2', null, 'Stakeholder Map'), h('p', null, 'Who we need, grouped by urgency: what they must deliver, by when, the decisions they own, the pushback to expect and how we resolve it. Click a card to open it.')),
+      h('div', { class: 'card-head' }, h('div', null, h('h2', null, 'Stakeholder Map'), h('p', null, 'Grouped by urgency. Click a name for asks, pushback and resolution.')),
         h('button', { class: 'btn', type: 'button', onClick: () => { const all = state.data?.stakeholders || []; const openAll = state.open.size < all.length; state.open = new Set(openAll ? all.map((s) => s.name) : []); drawMap(); } }, 'Open / close all')),
       map));
 
@@ -93,9 +93,9 @@ export function mount(root) {
     const open = state.open.has(sh.name);
     const el = h('article', { class: `sh ${sh.urgency.toLowerCase()}${HUB.test(sh.name) ? ' hub' : ''}`, id, 'data-open': '1' });
     el.addEventListener('deeplink', () => { if (!state.open.has(sh.name)) { state.open.add(sh.name); drawMap(); document.getElementById(id)?.scrollIntoView(); } });
-    el.append(h('button', { type: 'button', 'aria-expanded': String(open), onClick: () => { open ? state.open.delete(sh.name) : state.open.add(sh.name); drawMap(); } },
+    el.append(h('button', { type: 'button', 'aria-expanded': String(open), onClick: () => { open ? state.open.delete(sh.name) : state.open.add(sh.name); if (!open) history.replaceState(null, '', `#${id}`); drawMap(); } },
       h('div', { class: 'top' }, h('div', { class: 'nm' }, sh.name), h('span', { class: 'tag' }, sh.team || '—')),
-      h('div', { class: 'meta' }, sh.deadline ? h('span', null, `⏱ ${sh.deadline}`) : null, HUB.test(sh.name) ? h('span', { class: 'tag' }, 'Launch owner') : null, sh.risk ? h('span', { class: `pill u-${sh.risk.toLowerCase()}` }, `Risk: ${sh.risk}`) : null),
+      h('div', { class: 'meta' }, sh.deadline ? h('span', null, `Due: ${sh.deadline}`) : null, HUB.test(sh.name) ? h('span', { class: 'tag' }, 'Launch owner') : null, sh.risk ? h('span', { class: `pill u-${sh.risk.toLowerCase()}` }, `Risk: ${sh.risk}`) : null),
       h('div', { class: 'meta' }, sh.decisions.map((d) => h('span', { class: 'tag' }, d)))));
     if (open) {
       const byWeek = new Map();
@@ -104,8 +104,7 @@ export function mount(root) {
         sh.needs ? [h('h4', null, 'What needs to happen'), h('p', null, sh.needs)] : null,
         sh.pushback ? [h('h4', null, 'Expected pushback'), h('p', null, sh.pushback)] : null,
         sh.resolution ? [h('h4', null, 'Resolution'), h('p', null, sh.resolution)] : null,
-        byWeek.size ? [h('h4', null, 'Tasks by week'), h('ul', null, [...byWeek].sort((a, b) => a[0] - b[0]).map(([w, items]) => h('li', null, h('strong', null, `W${w}: `), items.join('; '))))] : null,
-        h('button', { class: 'btn ghost small link', type: 'button', onClick: () => copyLink(`/stakeholders#${id}`) }, 'Copy link to this stakeholder')));
+        byWeek.size ? [h('h4', null, 'Tasks by week'), h('ul', null, [...byWeek].sort((a, b) => a[0] - b[0]).map(([w, items]) => h('li', null, h('strong', null, `W${w}: `), items.join('; '))))] : null));
     }
     return el;
   }
@@ -117,9 +116,9 @@ export function mount(root) {
     if (!data || (!changed && state.data)) return;
     state.data = data;
     const n = data.stakeholders.length, tasks = data.stakeholders.reduce((k, s) => k + s.tasks.length, 0);
-    head.replaceChildren(h('div', null, h('div', { class: 'eyebrow' }, 'Helios GA launch'), h('h1', null, 'Stakeholder Collaboration'),
-      h('p', { class: 'lede' }, `${n} stakeholder groups and ${tasks} tasks across the ${data.weeks.length} weeks to GA: who does what, when, and what could block it.`)),
-      h('div', { class: 'source' }, 'Source: ', h('a', { href: data.sheetUrl, target: '_blank', rel: 'noopener' }, 'Helios Stakeholder Plan ↗')));
+    head.replaceChildren(h('div', null, h('h1', null, 'Stakeholder Collaboration'),
+      h('p', { class: 'lede' }, `${n} stakeholder groups · ${tasks} tasks · ${data.weeks.length} weeks to GA.`)),
+      h('div', { class: 'source' }, 'Source: ', h('a', { href: data.sheetUrl, target: '_blank', rel: 'noopener' }, 'Helios Stakeholder Plan')));
     notice.replaceChildren(data.source === 'snapshot' ? h('div', { class: 'notice' }, h('strong', null, 'Showing the built-in snapshot'), ` (${data.snapshotDate}). The Google Sheet could not be read, so live updates are paused.`) : '');
     const teams = [...new Set(data.stakeholders.map((s) => s.team).filter(Boolean))].sort();
     teamSel.replaceChildren(h('option', { value: '' }, 'All teams'), ...teams.map((t) => h('option', { value: t, selected: t === state.team }, t)));

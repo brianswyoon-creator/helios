@@ -1,6 +1,6 @@
 # Helios Launch Hub
 
-A password-protected website for the Helios GA launch case study. It reads its data **live from Google Sheets and Google Docs**, so the sheets are the database: edit a cell or a paragraph in Google and the site updates by itself, with no redeploy.
+A website for the Helios GA launch case study. It reads its data **live from Google Sheets and Google Docs**, so the sheets are the database: edit a cell or a paragraph in Google and the site updates by itself, with no redeploy.
 
 | Tab | What it shows | Live source |
 | --- | --- | --- |
@@ -9,7 +9,7 @@ A password-protected website for the Helios GA launch case study. It reads its d
 | **Stakeholder Collaboration** | Interactive 4-week timeline (hover a bar for the detail) and a stakeholder map | `Helios Stakeholder Plan` sheet |
 | **Enablement Materials (WIP)** | Launch Materials Center: 9 documents, readable in-site, downloadable, each with a shareable link | 7 Google Docs + AE cards + tracker built from the stakeholder sheet |
 
-There is **no build step and no framework**: static files in `public/`, a few serverless functions in `api/`, and one routing middleware for the password. Nothing to compile means nothing to break on deploy.
+There is **no build step, no framework and no dependencies**: static files in `public/` and a few serverless functions in `api/`. Nothing to compile means nothing to break on deploy.
 
 ---
 
@@ -22,7 +22,7 @@ The site reads Google files the same way an anonymous visitor with the link woul
 - Sheets: `Target Account List_vF`, `Helios Stakeholder Plan_vF`
 - Docs: “Not at GA” Script, AE & SE Ramp Plan, Launch Narrative & Messaging, Where Helios Fits & Where It Doesn’t, Objection FAQ, Outreach Email Template, Pilot Kit
 
-Visitors never see the Google links' contents directly: the site's own server fetches the files, and the whole site (pages, data and downloads) sits behind the password.
+The site's own server fetches the files, so visitors never need the Google links. Note the site itself is **open to anyone who has its URL** (it asks search engines not to index it). To restrict it, turn on *Vercel → Project → Settings → Deployment Protection*.
 
 > Until a file is shared, the site keeps working from a built-in snapshot and shows an amber **Snapshot** badge (sheets) or a “can’t be read yet” card (docs). It switches to **Live** by itself once sharing is on.
 
@@ -33,19 +33,14 @@ Visitors never see the Google links' contents directly: the site's own server fe
 3. Framework preset: **Other**. Leave *Build Command* and *Output Directory* empty. Click **Deploy**.
 4. Every later `git push` to `main` redeploys automatically.
 
-### Step 3 · Password
+### Optional settings
 
-The site ships with the agreed project password already active (only its SHA-256 hash is stored, in `lib/auth.js`).
-To change it, add an environment variable in **Vercel → Project → Settings → Environment Variables** and redeploy:
+Environment variables (Vercel → Project → Settings → Environment Variables):
 
 | Variable | Purpose |
 | --- | --- |
-| `SITE_PASSWORD` | New password (overrides the default) |
-| `SESSION_SECRET` | Any random string. Changing it signs everyone out |
 | `ACCOUNTS_SHEET_ID`, `STAKEHOLDER_SHEET_ID` | Point the site at different sheets |
 | `CACHE_SECONDS` | How long Vercel may reuse a Google response (default `10`) |
-
-This is an in-app gate, so it works on Vercel's free Hobby plan. (Vercel's own “Password Protection” is a paid add-on; you can switch that on as well, but it is not required.)
 
 ---
 
@@ -74,12 +69,12 @@ Nothing is hard-coded. `public/assets/model.js` mirrors the formulas in the shee
 
 ## 3. Shareable links
 
-Every view has its own address, and links survive the password screen (you land on the exact page and section after signing in).
+Every view has its own address.
 
 | Link | Opens |
 | --- | --- |
 | `/pipeline?addback=EMEA,stalled` | Dashboard with those two filters added back |
-| `/crm?view=wave-1&status=Wave%201&industry=FSI&q=harnell` | CRM view with filters and search applied |
+| `/crm?view=wave-1&industry=FSI&q=harnell`, `/crm?status=Disqualified` | CRM view with filters and search applied |
 | `/stakeholders#timeline`, `/stakeholders#stakeholder-legal-and-privacy` | Timeline, or one stakeholder card opened |
 | `/materials/objection-faq` | One document |
 | `/materials/objection-faq#<heading>` | A section of a document (hover a heading and click **#** to copy) |
@@ -95,12 +90,10 @@ Downloads: Google Docs as **Word / PDF** (always the latest version, exported on
 Requires Node 20+. There are no dependencies to install for local preview.
 
 ```bash
-npm run dev          # http://localhost:3000  (mimics Vercel: rewrites, /api, password gate)
+npm run dev          # http://localhost:3000  (mimics Vercel: rewrites and /api)
 npm test             # calculation + sanitiser tests
 npm run snapshot     # refresh the built-in fallback snapshot from the live sheets
 ```
-
-`AUTH_DISABLED=1 npm run dev` skips the password screen locally.
 
 ---
 
@@ -109,7 +102,6 @@ npm run snapshot     # refresh the built-in fallback snapshot from the live shee
 ```
 public/                 static site (served as-is)
   index.html            app shell: header, 4 tabs
-  login.html            password screen
   assets/
     app.js              router + live data stores (polling)
     model.js            all calculations (shared with tests)
@@ -117,7 +109,7 @@ public/                 static site (served as-is)
     views/              pipeline, crm, stakeholders, materials, material
     styles.css          design tokens + layout (Calibri / Carlito, ivory + slate + clay)
   downloads/            original AE account cards file
-api/                    Vercel functions: accounts, stakeholders, materials, doc, download, login, logout
+api/                    Vercel functions: accounts, stakeholders, materials, doc, download
 lib/
   google.js             fetches Sheets (xlsx) and Docs (html/docx/pdf) exports
   xlsx.js               zero-dependency XLSX reader
@@ -125,10 +117,8 @@ lib/
   stakeholders.js       stakeholder workbook → timeline + map + risks
   sanitize.js           Google Doc HTML → clean, safe HTML with heading anchors
   materials.js          the Launch Materials catalogue (order, titles, doc IDs)
-  auth.js               password gate logic
 data/                   fallback snapshots + AE card content
-middleware.js           runs the password gate in front of every request
-vercel.json             clean URLs, SPA rewrites, security headers
+vercel.json             SPA rewrites, security headers
 ```
 
 ### Common edits
@@ -144,6 +134,5 @@ vercel.json             clean URLs, SPA rewrites, security headers
 | Amber “Snapshot” badge | The sheet is not shared as *Anyone with the link: Viewer*. Fix sharing, then click the badge |
 | “This Google Doc can’t be read yet” | Same, for that doc |
 | Edit not showing | Wait ~30 s or click the status pill. Google's export can lag an edit by a few seconds |
-| Locked out after changing the password | Expected: the old session cookie is invalid. Sign in again |
 
 Design note: Calibri is not a web font, so browsers without it installed fall back to **Carlito**, its metric-compatible open equivalent, loaded from Google Fonts.

@@ -55,7 +55,7 @@ export function drawWaterfall(el, wf, width) {
     const rectTop = st.added && isDrop ? ghostTop : top;
     const rectH = Math.max(2, (st.added && isDrop ? ghostBottom : bottom) - rectTop);
     const g = s('g', { tabindex: 0, role: 'listitem', 'aria-label': `${st.label}: ${fmtM(st.m)}, ${st.n} accounts` });
-    g.append(s('rect', { class: 'mark', x, y: rectTop, width: bw, height: rectH, rx: 4, fill: COLORS[st.kind] }));
+    g.append(s('rect', { class: 'mark', x, y: rectTop, width: bw, height: rectH, rx: 1, fill: COLORS[st.kind] }));
     const sign = isDrop && !st.added ? '−' : st.added && isDrop ? '+' : '';
     g.append(s('text', { class: 'val', x: cx, y: rectTop - 7, 'text-anchor': 'middle' }, `${sign}${fmtM(st.m).replace('M', '')}`));
     wrapLabel(st.short, Math.max(9, Math.floor(band / 7))).forEach((line, li) => g.append(s('text', { x: cx, y: H - m.b + 18 + li * 15, 'text-anchor': 'middle' }, line)));
@@ -90,8 +90,8 @@ export function drawIndustry(el, rows, width) {
     const cy = m.t + rowH * i + rowH / 2, bh = 18;
     const g = s('g', { tabindex: 0, 'aria-label': `${r.industry}: ${fmtM(r.total)}, ${r.n} accounts` });
     g.append(s('text', { x: m.l - 10, y: cy + 4, 'text-anchor': 'end', style: 'fill:var(--ink)' }, r.industry));
-    if (r.base > 0) g.append(s('rect', { class: 'mark', x: x(0), y: cy - bh / 2, width: Math.max(2, x(r.base) - x(0)), height: bh, rx: 4, fill: COLORS.sellable }));
-    if (r.added > 0) g.append(s('rect', { class: 'mark', x: x(r.base) + (r.base > 0 ? 2 : 0), y: cy - bh / 2, width: Math.max(2, x(r.base + r.added) - x(r.base) - (r.base > 0 ? 2 : 0)), height: bh, rx: 4, fill: COLORS.added }));
+    if (r.base > 0) g.append(s('rect', { class: 'mark', x: x(0), y: cy - bh / 2, width: Math.max(2, x(r.base) - x(0)), height: bh, rx: 1, fill: COLORS.sellable }));
+    if (r.added > 0) g.append(s('rect', { class: 'mark', x: x(r.base) + (r.base > 0 ? 2 : 0), y: cy - bh / 2, width: Math.max(2, x(r.base + r.added) - x(r.base) - (r.base > 0 ? 2 : 0)), height: bh, rx: 1, fill: COLORS.added }));
     g.append(s('text', { class: r.total > 0 ? 'val' : '', x: x(r.total) + 8, y: cy + 4 }, r.total > 0 ? `${fmtM(r.total)} · ${r.n} acct${r.n === 1 ? '' : 's'}` : '—'));
     g.append(s('rect', { class: 'hit', x: 0, y: cy - rowH / 2, width: W, height: rowH }));
     bindTip(g, () => [h('b', null, r.industry), tipRow('Sellable at GA (baseline)', fmtM(r.base)), tipRow('Added back (scenario)', fmtM(r.added)), tipRow('Total', fmtM(r.total)), tipRow('Accounts', String(r.n))]);
@@ -122,7 +122,7 @@ export function drawScatter(el, pts, width, { dimmed = () => false, labels = tru
   for (const p of order) {
     const cx = x(p.x), cy = y(p.y), rad = r(p), dim = dimmed(p);
     const g = s('g', { class: 'pt', tabindex: p.top ? 0 : -1, opacity: dim ? 0.12 : 1, 'aria-label': `${p.name}: fit ${p.fit}, urgency ${p.urgency}, ${fmtM(p.oppM)}` });
-    g.append(s('circle', { cx, cy, r: rad, fill: p.top ? 'var(--c-removed)' : 'var(--c-other)', 'fill-opacity': p.top ? 0.82 : 0.45, stroke: 'var(--surface)', 'stroke-width': 2 }));
+    g.append(s('circle', { cx, cy, r: rad, fill: p.top ? 'var(--c-removed)' : 'var(--c-other)', 'fill-opacity': p.top ? 0.82 : 0.45, stroke: 'var(--bg)', 'stroke-width': 1.5 }));
     bindTip(g, () => [h('b', null, p.top ? `#${p.rank} · ${p.name}` : p.name), tipRow('Status', p.status), tipRow('Industry · region', `${p.industry} · ${p.region}`), tipRow('Owner', p.owner),
       tipRow('Opportunity', fmtM(p.oppM)), tipRow('Fit', String(p.fit)), tipRow('Urgency', String(p.urgency)), tipRow('Weighted score', `${p.score.toFixed(1)} (rank ${p.rank})`)]);
     if (onPick) { g.addEventListener('click', () => onPick(p)); g.addEventListener('keydown', (e) => { if (e.key === 'Enter') onPick(p); }); }

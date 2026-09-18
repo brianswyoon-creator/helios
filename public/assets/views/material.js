@@ -21,7 +21,7 @@ export function mount(root, { params }) {
     header.replaceChildren(
       h('div', { class: 'page-head', style: { marginBottom: '18px' } },
         h('div', null, h('div', { class: 'eyebrow' }, 'Enablement Materials · WIP'), h('h1', null, d.title), h('p', { class: 'lede' }, d.blurb)),
-        h('div', { class: 'doc-actions' }, downloads(d), d.docUrl ? h('a', { class: 'btn', href: d.docUrl, target: '_blank', rel: 'noopener' }, 'Open in Google Docs ↗') : null,
+        h('div', { class: 'doc-actions' }, downloads(d), d.docUrl ? h('a', { class: 'btn', href: d.docUrl, target: '_blank', rel: 'noopener' }, 'Open in Google Docs') : null,
           h('button', { class: 'btn primary', type: 'button', onClick: () => copyLink(path + location.hash) }, 'Copy link'))),
       wipBanner());
   }
@@ -30,7 +30,7 @@ export function mount(root, { params }) {
     if (d.source === 'unavailable') {
       body.className = '';
       body.replaceChildren(h('div', { class: 'empty' }, h('h3', null, 'This Google Doc can’t be read yet'), h('p', null, 'Share the document as “Anyone with the link: Viewer” and it will appear here automatically within a few seconds.'),
-        h('p', { class: 'small muted' }, d.error), h('a', { class: 'btn', href: d.docUrl, target: '_blank', rel: 'noopener' }, 'Open in Google Docs ↗')));
+        h('p', { class: 'small muted' }, d.error), h('a', { class: 'btn', href: d.docUrl, target: '_blank', rel: 'noopener' }, 'Open in Google Docs')));
       return;
     }
     const article = h('article', { class: 'doc', html: d.html }); // server-sanitised HTML (see lib/sanitize.js)
@@ -40,7 +40,7 @@ export function mount(root, { params }) {
     body.className = 'doc-layout';
     body.replaceChildren(
       h('nav', { class: 'toc', 'aria-label': 'On this page' }, h('h4', null, 'On this page'), toc.length ? toc.map((x) => h('a', { class: `l${x.level - top + 1}`, href: `#${x.id}` }, x.text)) : h('span', { class: 'muted small' }, 'No headings'),
-        h('p', { class: 'small muted', style: { marginTop: '14px' } }, `${d.words.toLocaleString('en-US')} words · live from Google Docs`)),
+        h('p', { class: 'small muted', style: { marginTop: '14px' } }, `${d.words.toLocaleString('en-US')} words`)),
       article);
   }
 

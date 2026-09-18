@@ -13,7 +13,6 @@ function createStore(url) {
     inflight = (async () => {
       try {
         const res = await fetch(force ? `${url}${url.includes('?') ? '&' : '?'}fresh=${Date.now()}` : url, { headers: { accept: 'application/json' } });
-        if (res.status === 401) { location.href = `/login?next=${encodeURIComponent(location.pathname + location.search)}${location.hash}`; return; }
         if (!res.ok && res.status !== 404) throw new Error(`HTTP ${res.status}`);
         const next = await res.json();
         const { fetchedAt, ...rest } = next;

@@ -3,29 +3,44 @@ import { h } from '../ui.js';
 import { accountsStore, setStatus, setQuery } from '../app.js';
 import { enrich, crmGroups, VIEWS, STATUSES, fmtM, slug } from '../model.js';
 
+// The table shows only what fits on one screen; everything else is in the expanded row.
 const COLS = [
-  ['Rank', (a) => a.rank, 'num'], ['Account name', (a) => h('span', { class: 'name' }, a.name)], ['Account Status for Helios GA', (a) => h('span', { class: `pill s-${slug(a.status)}` }, a.status)],
-  ['Next Steps / Actions', (a) => h('div', { class: 'clamp', title: a.next }, a.next)], ['Opportunity name', (a) => a.oppName], ['Account owner', (a) => a.owner], ['Industry', (a) => a.industry],
-  ['Sub-industry', (a) => a.subIndustry], ['Region', (a) => a.region], ['Annual revenue ($K)', (a) => a.revenueK.toLocaleString('en-US'), 'num'], ['Opportunity size ($K)', (a) => a.oppK.toLocaleString('en-US'), 'num'], ['Deal / Revenue', (a) => a.dealRev, 'num'],
+  ['#', (a) => a.rank, 'num'],
+  ['Account', (a) => [h('div', { class: 'name' }, a.name), h('div', { class: 'sub' }, [a.industry, a.subIndustry, a.region].filter(Boolean).join(' · '))]],
+  ['Status', (a) => h('span', { class: `pill s-${slug(a.status)}` }, a.status)],
+  ['Next step', (a) => h('div', { class: 'clamp' }, a.next)],
+  ['Owner', (a) => a.owner],
+  ['Annual revenue ($K)', (a) => a.revenueK.toLocaleString('en-US'), 'num'],
+  ['Opportunity ($K)', (a) => a.oppK.toLocaleString('en-US'), 'num'],
+  ['', () => h('span', { class: 'caret', 'aria-hidden': 'true' }, '▾')],
 ];
+const WAVE_VIEW = { 'Wave 1': 'wave-1', 'Wave 2': 'wave-2' };
+// "Deal / Revenue" in the sheet is a ratio (Helios opportunity ÷ current annual revenue), only filled for accounts with a Helios deal.
+const dealRatio = (a) => (/^[\d.]+x$/.test(a.dealRev) ? a.dealRev : '');
 
 export function mount(root, { query }) {
   const state = { rows: [], payload: null, view: VIEWS.some((v) => v.id === query.get('view')) ? query.get('view') : 'prioritization', q: query.get('q') || '', status: query.get('status') || '', industry: query.get('industry') || '', open: new Set() };
+  if (WAVE_VIEW[state.status] && !query.get('view')) { state.view = WAVE_VIEW[state.status]; state.status = ''; }
   const sync = () => setQuery({ view: state.view === 'prioritization' ? null : state.view, q: state.q, status: state.status, industry: state.industry });
 
   const head = h('div', { class: 'page-head' });
   const notice = h('div');
-  const seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'CRM view' }, VIEWS.map((v) => h('button', { type: 'button', 'data-view': v.id, onClick: () => { state.view = v.id; sync(); renderList(); } }, v.label)));
+  const seg = h('div', { class: 'seg', role: 'group', 'aria-label': 'CRM view' }, VIEWS.map((v) => h('button', { type: 'button', 'data-view': v.id, onClick: () => { state.view = v.id; if (v.id.startsWith('wave')) state.status = ''; sync(); fillSelects(); renderList(); } }, v.label)));
   const search = h('input', { type: 'search', placeholder: 'Search account name…', value: state.q, 'aria-label': 'Search by account name', onInput: (e) => { state.q = e.target.value; sync(); renderList(); } });
   const statusSel = h('select', { 'aria-label': 'Filter by account status', onChange: (e) => { state.status = e.target.value; sync(); renderList(); } });
   const industrySel = h('select', { 'aria-label': 'Filter by industry', onChange: (e) => { state.industry = e.target.value; sync(); renderList(); } });
+  const statusField = h('label', { class: 'field' }, 'Status', statusSel);
+  const active = h('div', { class: 'active-filters' });
   const count = h('div', { class: 'small muted', style: { marginLeft: 'auto', alignSelf: 'center' } });
   const clear = h('button', { class: 'btn ghost', type: 'button', onClick: () => { state.q = state.status = state.industry = ''; search.value = ''; sync(); fillSelects(); renderList(); } }, 'Clear filters');
   const list = h('div');
 
-  root.replaceChildren(head, notice, seg,
-    h('div', { class: 'card section' }, h('div', { class: 'toolbar' },
-      h('label', { class: 'field grow' }, 'Account name', search), h('label', { class: 'field' }, 'Account Status for Helios GA', statusSel), h('label', { class: 'field' }, 'Industry', industrySel), clear, count)),
+  root.replaceChildren(head, notice,
+    h('div', { class: 'card' },
+      h('div', { class: 'step' }, h('span', { class: 'step-k' }, 'View'), seg, h('span', { class: 'small muted' }, 'Same groupings as the sheet tabs')),
+      h('div', { class: 'step' }, h('span', { class: 'step-k' }, 'Filter'), h('div', { class: 'toolbar', style: { flex: '1' } },
+        h('label', { class: 'field grow' }, 'Account name', search), statusField, h('label', { class: 'field' }, 'Industry', industrySel), clear, count)),
+      active),
     list);
 
   function fillSelects() {
@@ -43,6 +58,13 @@ export function mount(root, { query }) {
     const groups = crmGroups(state.rows, state.view).map((g) => ({ ...g, shown: g.rows.filter(match) })).filter((g) => g.shown.length);
     const shown = groups.reduce((n, g) => n + g.shown.length, 0), total = crmGroups(state.rows, state.view).reduce((n, g) => n + g.n, 0);
     const filtered = !!(q || state.status || state.industry);
+    // In the Wave 1 / Wave 2 views every row already has that status, so the status filter would be redundant.
+    statusField.hidden = state.view.startsWith('wave');
+    const chipFor = (label, reset) => h('button', { class: 'chip', type: 'button', title: 'Remove this filter', onClick: () => { reset(); search.value = state.q; sync(); fillSelects(); renderList(); } }, label, h('span', { 'aria-hidden': 'true' }, '✕'));
+    active.replaceChildren(...(filtered ? [h('span', { class: 'small muted' }, 'Showing only:'),
+      q ? chipFor(`Name contains “${state.q.trim()}”`, () => { state.q = ''; }) : null,
+      state.status ? chipFor(`Status: ${state.status}`, () => { state.status = ''; }) : null,
+      state.industry ? chipFor(`Industry: ${state.industry}`, () => { state.industry = ''; }) : null].filter(Boolean) : []));
     count.textContent = filtered ? `${shown} of ${total} accounts` : `${total} accounts`;
     clear.style.visibility = filtered ? 'visible' : 'hidden';
     const view = VIEWS.find((v) => v.id === state.view);
@@ -57,8 +79,14 @@ export function mount(root, { query }) {
   function rowsFor(a, groupTitle) {
     const id = `${groupTitle}|${a.name}`;
     const tr = h('tr', { class: 'row', tabindex: 0, 'aria-expanded': String(state.open.has(id)) }, COLS.map(([, get, cls]) => h('td', { class: cls }, get(a))));
-    const detail = h('tr', { class: 'detail', hidden: !state.open.has(id) }, h('td', { colSpan: COLS.length }, h('div', { class: 'detail-grid' },
-      h('div', null, h('h4', null, 'Next Steps / Actions'), h('p', null, a.next || '—')), h('div', null, h('h4', null, 'Opportunity notes'), h('p', null, a.oppNotes || '—')), h('div', null, h('h4', null, 'Account notes'), h('p', null, a.acctNotes || '—')))));
+    const ratio = dealRatio(a);
+    const detail = h('tr', { class: 'detail', hidden: !state.open.has(id) }, h('td', { colSpan: COLS.length }, h('div', { class: 'detail-body' },
+      h('div', { class: 'facts' },
+        h('div', null, h('h4', null, 'Opportunity'), h('p', null, a.oppName || '—')),
+        h('div', null, h('h4', null, 'Sub-industry · Region'), h('p', null, [a.subIndustry, a.region].filter(Boolean).join(' · ') || '—')),
+        ratio ? h('div', null, h('h4', null, 'Deal ÷ revenue'), h('p', null, h('strong', null, ratio), h('span', { class: 'muted' }, ' · Helios opportunity as a multiple of current annual revenue'))) : null),
+      h('div', { class: 'detail-grid' },
+        h('div', null, h('h4', null, 'Next steps / actions'), h('p', null, a.next || '—')), h('div', null, h('h4', null, 'Opportunity notes'), h('p', null, a.oppNotes || '—')), h('div', null, h('h4', null, 'Account notes'), h('p', null, a.acctNotes || '—'))))));
     const toggle = () => { state.open.has(id) ? state.open.delete(id) : state.open.add(id); detail.hidden = !state.open.has(id); tr.setAttribute('aria-expanded', String(state.open.has(id))); };
     tr.addEventListener('click', toggle);
     tr.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } });
@@ -70,8 +98,8 @@ export function mount(root, { query }) {
     setStatus(data, error);
     if (!data || (!changed && state.payload)) return;
     state.payload = data; state.rows = enrich(data.accounts || []);
-    head.replaceChildren(h('div', null, h('div', { class: 'eyebrow' }, 'Helios GA launch'), h('h1', null, 'CRM'), h('p', { class: 'lede' }, 'Every target account with its Helios GA status, next step and owner. Pick a view, then search or filter. Click a row for the full notes.')),
-      h('div', { class: 'source' }, 'Source: ', h('a', { href: data.sheetUrl, target: '_blank', rel: 'noopener' }, 'Target Account List ↗')));
+    head.replaceChildren(h('div', null, h('h1', null, 'CRM'), h('p', { class: 'lede' }, 'Click a row for notes.')),
+      h('div', { class: 'source' }, 'Source: ', h('a', { href: data.sheetUrl, target: '_blank', rel: 'noopener' }, 'Target Account List')));
     notice.replaceChildren(data.source === 'snapshot' ? h('div', { class: 'notice' }, h('strong', null, 'Showing the built-in snapshot'), ` (${data.snapshotDate}). The Google Sheet could not be read, so live updates are paused.`) : '');
     fillSelects(); renderList();
   });

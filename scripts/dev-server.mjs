@@ -1,12 +1,10 @@
 // Zero-dependency local preview that mimics Vercel: static files from /public, clean URLs,
-// the rewrites in vercel.json, /api/* functions and the password gate.
+// the rewrites in vercel.json and /api/* functions.
 //   npm run dev            → http://localhost:3000
-//   AUTH_DISABLED=1 npm run dev   (skip the password screen locally)
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
-import { gate } from '../lib/auth.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const config = JSON.parse(await readFile(path.join(root, 'vercel.json'), 'utf8'));
@@ -29,8 +27,6 @@ http.createServer(async (req, res) => {
     const chunks = [];
     for await (const c of req) chunks.push(c);
     const request = new Request(url, { method: req.method, headers: req.headers, body: chunks.length ? Buffer.concat(chunks) : undefined });
-    const blocked = await gate(request);
-    if (blocked) return send(res, blocked);
     const redirect = redirects.find((r) => r.re.test(url.pathname));
     if (redirect) { res.writeHead(307, { location: redirect.to }); return res.end(); }
     if (url.pathname.startsWith('/api/')) {
